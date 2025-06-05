@@ -108,3 +108,21 @@ create index IF not exists idx_treatment_packages_status on public.treatment_pac
 create trigger update_treatment_packages_updated_at BEFORE
 update on treatment_packages for EACH row
 execute FUNCTION update_updated_at_column();
+
+
+create table public.products (
+  id uuid not null default gen_random_uuid(),
+  name character varying(255) not null,
+  notes text null,
+  usage_times text[] null default array[]::text[],
+  status character varying(20) null default 'active'::character varying,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  constraint products_pkey primary key (id)
+) TABLESPACE pg_default;
+
+create index IF not exists idx_products_status on public.products using btree (status) TABLESPACE pg_default;
+
+create trigger update_products_updated_at BEFORE
+update on products for EACH row
+execute FUNCTION update_updated_at_column();

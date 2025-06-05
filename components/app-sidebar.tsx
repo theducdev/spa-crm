@@ -39,6 +39,11 @@ const menuItems = [
     icon: Package,
   },
   {
+    title: "Sản phẩm",
+    url: "/products",
+    icon: Package,
+  },
+  {
     title: "Chăm sóc KH",
     url: "/customer-care",
     icon: MessageCircle,

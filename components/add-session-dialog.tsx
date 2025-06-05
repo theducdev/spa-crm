@@ -1,14 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { createNewTreatmentSession } from "@/lib/treatment-api"
+import { createNewTreatmentSession, upsertTreatmentSession } from "@/lib/treatment-api"
+import { getProducts, type Product } from "@/lib/product-api"
 import type { Treatment } from "@/lib/supabase"
 
 interface AddSessionDialogProps {
@@ -20,6 +22,7 @@ interface AddSessionDialogProps {
 export function AddSessionDialog({ treatment, onSessionAdded, canAddSession }: AddSessionDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [products, setProducts] = useState<Product[]>([])
   const { toast } = useToast()
 
   const [sessionData, setSessionData] = useState({
@@ -31,12 +34,43 @@ export function AddSessionDialog({ treatment, onSessionAdded, canAddSession }: A
     notes: "",
   })
 
+  useEffect(() => {
+    if (open) {
+      loadProducts()
+    }
+  }, [open])
+
+  const loadProducts = async () => {
+    try {
+      const data = await getProducts({ status: "active" })
+      setProducts(data)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách sản phẩm",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleCreateSession = async () => {
     if (!treatment) return
 
     setLoading(true)
     try {
-      await createNewTreatmentSession(treatment.id)
+      // Tạo session mới
+      const newSession = await createNewTreatmentSession(treatment.id)
+
+      // Cập nhật thông tin chi tiết của session
+      await upsertTreatmentSession({
+        id: newSession.id,
+        treatment_id: treatment.id,
+        session_number: treatment.current_session + 1,
+        session_date: sessionData.session_date,
+        products_used: sessionData.products_used,
+        notes: sessionData.notes
+      })
 
       toast({
         title: "Thành công",
@@ -116,12 +150,21 @@ export function AddSessionDialog({ treatment, onSessionAdded, canAddSession }: A
 
           <div>
             <Label htmlFor="products_used">Sản phẩm dự kiến sử dụng</Label>
-            <Input
-              id="products_used"
-              placeholder="Nhập tên sản phẩm, liều lượng..."
+            <Select
               value={sessionData.products_used}
-              onChange={(e) => setSessionData((prev) => ({ ...prev, products_used: e.target.value }))}
-            />
+              onValueChange={(value) => setSessionData((prev) => ({ ...prev, products_used: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Chọn sản phẩm sử dụng" />
+              </SelectTrigger>
+              <SelectContent>
+                {products.map((product) => (
+                  <SelectItem key={product.id} value={product.name}>
+                    {product.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div>

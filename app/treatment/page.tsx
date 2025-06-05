@@ -22,12 +22,14 @@ import {
 } from "@/lib/treatment-api"
 import type { Treatment, TreatmentSession } from "@/lib/supabase"
 import { TreatmentProgress } from "@/components/treatment-progress"
+import { getProducts, type Product } from "@/lib/product-api"
 
 export default function TreatmentPage() {
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null)
   const [sessions, setSessions] = useState<TreatmentSession[]>([])
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0)
+  const [products, setProducts] = useState<Product[]>([])
 
   // Separate loading states
   const [initialLoading, setInitialLoading] = useState(true)
@@ -63,6 +65,7 @@ export default function TreatmentPage() {
   // Load treatments on component mount
   useEffect(() => {
     loadTreatments()
+    loadProducts()
   }, [])
 
   // Update form data when session changes (with debounce effect)
@@ -98,6 +101,20 @@ export default function TreatmentPage() {
       })
     } finally {
       setInitialLoading(false)
+    }
+  }
+
+  const loadProducts = async () => {
+    try {
+      const data = await getProducts({ status: "active" })
+      setProducts(data)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách sản phẩm",
+        variant: "destructive",
+      })
     }
   }
 
@@ -581,12 +598,21 @@ export default function TreatmentPage() {
 
               <div>
                 <Label htmlFor="products">Sản phẩm sử dụng</Label>
-                <Input
-                  id="products"
-                  placeholder="Nhập tên sản phẩm, liều lượng..."
-                  value={sessionData.products_used}
-                  onChange={(e) => setSessionData((prev) => ({ ...prev, products_used: e.target.value }))}
-                />
+                <Select
+                  value={sessionData.products_used || ""}
+                  onValueChange={(value) => setSessionData((prev) => ({ ...prev, products_used: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn sản phẩm sử dụng" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products.map((product) => (
+                      <SelectItem key={product.id} value={product.name}>
+                        {product.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>

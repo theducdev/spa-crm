@@ -24,6 +24,7 @@ import {
 } from "@/lib/customer-api"
 import { getTreatmentPackages, type TreatmentPackage } from "@/lib/treatment-package-api"
 import { createTreatment } from "@/lib/treatment-api"
+import { debounce } from "lodash"
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -45,6 +46,10 @@ export default function CustomersPage() {
     status: "all",
   })
 
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isSearching, setIsSearching] = useState(false)
+
   const { toast } = useToast()
 
   // Form data for add/edit
@@ -52,7 +57,7 @@ export default function CustomersPage() {
     name: "",
     phone: "",
     email: "",
-    gender: "",
+    gender: "" as "male" | "female" | null,
     birth_date: "",
     address: "",
     notes: "",
@@ -69,7 +74,16 @@ export default function CustomersPage() {
   useEffect(() => {
     loadCustomers()
     loadTreatmentPackages()
-  }, [])
+  }, [filters])
+
+  // Handle search with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: searchTerm }))
+    }, 500) // Tăng debounce time lên 500ms
+
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const loadCustomers = async () => {
     try {
@@ -84,6 +98,7 @@ export default function CustomersPage() {
       })
     } finally {
       setLoading(false)
+      setIsSearching(false)
     }
   }
 
@@ -103,11 +118,12 @@ export default function CustomersPage() {
     }
   }
 
-  const handleSearch = useCallback((searchTerm: string) => {
-    setFilters((prev) => ({ ...prev, search: searchTerm }))
-  }, [])
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsSearching(true)
+    setSearchTerm(e.target.value)
+  }
 
-  const handleStatusFilter = useCallback((status: string) => {
+  const handleStatusFilter = useCallback((status: "all" | "active" | "inactive" | "pending") => {
     setFilters((prev) => ({ ...prev, status }))
   }, [])
 
@@ -574,12 +590,16 @@ export default function CustomersPage() {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                {isSearching ? (
+                  <Loader2 className="absolute left-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                )}
                 <Input
                   placeholder="Tìm kiếm theo tên, số điện thoại..."
                   className="pl-10"
-                  value={filters.search}
-                  onChange={(e) => handleSearch(e.target.value)}
+                  value={searchTerm}
+                  onChange={handleSearch}
                 />
               </div>
             </div>
