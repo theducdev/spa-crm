@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Upload, Save, Camera, User, Calendar, ChevronLeft, ChevronRight, X, Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Combobox } from "@/components/ui/combobox"
 import { useToast } from "@/hooks/use-toast"
 import { AddSessionDialog } from "@/components/add-session-dialog"
 import {
@@ -68,7 +69,7 @@ export default function TreatmentPage() {
     loadProducts()
   }, [])
 
-  // Update form data when session changes (with debounce effect)
+  // Update form data when session changes
   useEffect(() => {
     if (sessions.length > 0 && sessions[currentSessionIndex]) {
       const session = sessions[currentSessionIndex]
@@ -174,7 +175,8 @@ export default function TreatmentPage() {
   )
 
   const handleTreatmentChange = useCallback(
-    async (treatmentId: string) => {
+    async (value: string | string[]) => {
+      const treatmentId = Array.isArray(value) ? value[0] : value;
       const treatment = treatments.find((t) => t.id === treatmentId)
       if (!treatment) return
 
@@ -317,22 +319,18 @@ export default function TreatmentPage() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
           {/* Treatment Selection */}
           <div className="relative">
-            <Select
+            <Combobox
+              options={treatments.map(treatment => ({
+                value: treatment.id,
+                label: `${treatment.customer?.name || 'N/A'} - ${treatment.customer?.phone || 'N/A'} - ${treatment.treatment_name}`
+              }))}
               value={selectedTreatment?.id || ""}
               onValueChange={handleTreatmentChange}
-              disabled={treatmentLoading}
-            >
-              <SelectTrigger className="w-full sm:w-64">
-                <SelectValue placeholder="Chọn liệu trình" />
-              </SelectTrigger>
-              <SelectContent>
-                {treatments.map((treatment) => (
-                  <SelectItem key={treatment.id} value={treatment.id}>
-                    {treatment.customer?.name} - {treatment.treatment_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder="Chọn liệu trình"
+              searchPlaceholder="Tìm theo tên hoặc số điện thoại..."
+              emptyText="Không tìm thấy liệu trình phù hợp."
+              className="w-full sm:w-[350px]"
+            />
             {treatmentLoading && (
               <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
                 <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
@@ -598,21 +596,21 @@ export default function TreatmentPage() {
 
               <div>
                 <Label htmlFor="products">Sản phẩm sử dụng</Label>
-                <Select
-                  value={sessionData.products_used || ""}
-                  onValueChange={(value) => setSessionData((prev) => ({ ...prev, products_used: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn sản phẩm sử dụng" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.name}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={products.map(product => ({
+                    value: product.name,
+                    label: product.name
+                  }))}
+                  value={sessionData.products_used ? sessionData.products_used.split(",").filter(Boolean) : []}
+                  onValueChange={(value) => {
+                    const productsString = Array.isArray(value) ? value.join(",") : value;
+                    setSessionData((prev) => ({ ...prev, products_used: productsString }));
+                  }}
+                  placeholder="Chọn sản phẩm sử dụng"
+                  searchPlaceholder="Tìm kiếm sản phẩm..."
+                  emptyText="Không tìm thấy sản phẩm phù hợp."
+                  multiple
+                />
               </div>
 
               <div>
