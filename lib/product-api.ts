@@ -4,7 +4,6 @@ export interface Product {
   id: string
   name: string
   notes?: string
-  usage_times: string[]
   status: "active" | "inactive"
   created_at: string
   updated_at: string

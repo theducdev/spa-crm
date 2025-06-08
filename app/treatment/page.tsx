@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Save, Camera, User, Calendar, ChevronLeft, ChevronRight, X, Loader2 } from "lucide-react"
+import { Upload, Save, Camera, User, Calendar, ChevronLeft, ChevronRight, X, Loader2, CheckCircle2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Combobox } from "@/components/ui/combobox"
 import { useToast } from "@/hooks/use-toast"
 import { AddSessionDialog } from "@/components/add-session-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import {
   getTreatments,
   getTreatmentSessions,
@@ -24,6 +25,34 @@ import {
 import type { Treatment, TreatmentSession } from "@/lib/supabase"
 import { TreatmentProgress } from "@/components/treatment-progress"
 import { getProducts, type Product } from "@/lib/product-api"
+import { maskPhoneNumber } from "@/lib/utils"
+
+const USAGE_TIMES = [
+  { id: "morning", label: "Sáng" },
+  { id: "noon", label: "Trưa" },
+  { id: "afternoon", label: "Chiều" },
+  { id: "evening", label: "Tối" },
+]
+
+// Helper function to convert old format to new format
+const convertProductsFormat = (productsString: string): string => {
+  try {
+    // Try to parse as JSON first
+    JSON.parse(productsString);
+    return productsString;
+  } catch {
+    // If not valid JSON, convert from old format
+    return JSON.stringify(
+      productsString
+        .split(",")
+        .filter(Boolean)
+        .map(product => ({
+          product: product.trim(),
+          usage_times: []
+        }))
+    );
+  }
+}
 
 export default function TreatmentPage() {
   const [treatments, setTreatments] = useState<Treatment[]>([])
@@ -44,7 +73,7 @@ export default function TreatmentPage() {
   // Form data
   const [sessionData, setSessionData] = useState({
     session_date: "",
-    products_used: "",
+    products_used: "", // Stored as JSON string: [{product: string, usage_times: string[]}]
     skin_condition: "",
     reaction: "",
     next_appointment: "",
@@ -63,6 +92,9 @@ export default function TreatmentPage() {
     >
   >(new Map())
 
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
+
   // Load treatments on component mount
   useEffect(() => {
     loadTreatments()
@@ -75,7 +107,7 @@ export default function TreatmentPage() {
       const session = sessions[currentSessionIndex]
       setSessionData({
         session_date: session.session_date || "",
-        products_used: session.products_used || "",
+        products_used: convertProductsFormat(session.products_used || "[]"),
         skin_condition: session.skin_condition || "",
         reaction: session.reaction || "",
         next_appointment: session.next_appointment || "",
@@ -200,12 +232,28 @@ export default function TreatmentPage() {
         treatment_id: selectedTreatment.id,
         session_number: currentSession.session_number,
         ...sessionData,
+        products_used: sessionData.products_used
       })
 
-      toast({
-        title: "Thành công",
-        description: "Đã lưu thông tin buổi điều trị",
-      })
+      // Parse products for display
+      const productsUsed = JSON.parse(sessionData.products_used || '[]');
+      const productsDisplay = productsUsed.map((item: { product: string, usage_times: string[] }) => {
+        const times = item.usage_times
+          .map(timeId => USAGE_TIMES.find(t => t.id === timeId)?.label || '')
+          .filter(Boolean)
+          .join(', ');
+        return `${item.product}${times ? ` (${times})` : ''}`;
+      }).join('\n');
+
+      const message = [
+        `Đã lưu thông tin buổi điều trị ${currentSession.session_number}/${selectedTreatment.total_sessions} cho khách hàng ${selectedTreatment.customer?.name || 'N/A'}`,
+        productsDisplay && `\nSản phẩm đã sử dụng:\n${productsDisplay}`,
+        sessionData.next_appointment && `\nLịch hẹn tiếp theo: ${sessionData.next_appointment}`
+      ].filter(Boolean).join('\n');
+
+      // Hiển thị dialog thành công
+      setSuccessMessage(message);
+      setShowSuccessDialog(true);
 
       // Clear cache and reload
       setTreatmentCache((prev) => {
@@ -216,10 +264,11 @@ export default function TreatmentPage() {
 
       await loadTreatmentData(selectedTreatment.id, false)
     } catch (error) {
+      console.error('Error saving session:', error);
       toast({
-        title: "Lỗi",
-        description: "Không thể lưu thông tin buổi điều trị",
         variant: "destructive",
+        title: "Lỗi",
+        description: "Không thể lưu thông tin buổi điều trị. Vui lòng thử lại.",
       })
     } finally {
       setSaving(false)
@@ -322,7 +371,7 @@ export default function TreatmentPage() {
             <Combobox
               options={treatments.map(treatment => ({
                 value: treatment.id,
-                label: `${treatment.customer?.name || 'N/A'} - ${treatment.customer?.phone || 'N/A'} - ${treatment.treatment_name}`
+                label: `${treatment.customer?.name || 'N/A'} - ${maskPhoneNumber(treatment.customer?.phone)} - ${treatment.treatment_name}`
               }))}
               value={selectedTreatment?.id || ""}
               onValueChange={handleTreatmentChange}
@@ -397,7 +446,7 @@ export default function TreatmentPage() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Số điện thoại</Label>
-                  <p className="text-base">{selectedTreatment.customer?.phone || "Chưa có"}</p>
+                  <p className="text-base">{maskPhoneNumber(selectedTreatment.customer?.phone)}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Email</Label>
@@ -596,21 +645,83 @@ export default function TreatmentPage() {
 
               <div>
                 <Label htmlFor="products">Sản phẩm sử dụng</Label>
-                <Combobox
-                  options={products.map(product => ({
-                    value: product.name,
-                    label: product.name
-                  }))}
-                  value={sessionData.products_used ? sessionData.products_used.split(",").filter(Boolean) : []}
-                  onValueChange={(value) => {
-                    const productsString = Array.isArray(value) ? value.join(",") : value;
-                    setSessionData((prev) => ({ ...prev, products_used: productsString }));
-                  }}
-                  placeholder="Chọn sản phẩm sử dụng"
-                  searchPlaceholder="Tìm kiếm sản phẩm..."
-                  emptyText="Không tìm thấy sản phẩm phù hợp."
-                  multiple
-                />
+                <div className="space-y-4">
+                  {JSON.parse(sessionData.products_used || '[]').map((item: { product: string, usage_times: string[] }, index: number) => (
+                    <div key={index} className="space-y-2 p-4 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{item.product}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const products = JSON.parse(sessionData.products_used || '[]');
+                            products.splice(index, 1);
+                            setSessionData(prev => ({ ...prev, products_used: JSON.stringify(products) }));
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div>
+                        <Label className="text-sm text-muted-foreground mb-2 block">Thời điểm sử dụng</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {USAGE_TIMES.map((time) => (
+                            <Button
+                              key={time.id}
+                              variant={item.usage_times.includes(time.id) ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                const products = JSON.parse(sessionData.products_used || '[]');
+                                const product = products[index];
+                                if (product.usage_times.includes(time.id)) {
+                                  product.usage_times = product.usage_times.filter((t: string) => t !== time.id);
+                                } else {
+                                  product.usage_times.push(time.id);
+                                }
+                                setSessionData(prev => ({ ...prev, products_used: JSON.stringify(products) }));
+                              }}
+                            >
+                              {time.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <Combobox
+                    options={products.map(product => ({
+                      value: product.id,
+                      label: product.name
+                    }))}
+                    value=""
+                    onValueChange={(value) => {
+                      const newProducts = Array.isArray(value) ? value : [value];
+                      const currentProducts = JSON.parse(sessionData.products_used || '[]');
+                      
+                      // Tìm thông tin sản phẩm từ ID
+                      const productsToAdd = newProducts
+                        .map(productId => products.find(p => p.id === productId))
+                        .filter(Boolean)
+                        .filter(product => 
+                          !currentProducts.some((p: { product: string }) => p.product === product?.name)
+                        )
+                        .map(product => ({
+                          product: product?.name || '',
+                          usage_times: []
+                        }));
+                      
+                      if (productsToAdd.length > 0) {
+                        setSessionData(prev => ({
+                          ...prev,
+                          products_used: JSON.stringify([...currentProducts, ...productsToAdd])
+                        }));
+                      }
+                    }}
+                    placeholder="Chọn hoặc tìm kiếm sản phẩm..."
+                    searchPlaceholder="Tìm kiếm sản phẩm..."
+                    emptyText="Không tìm thấy sản phẩm phù hợp."
+                  />
+                </div>
               </div>
 
               <div>
@@ -666,6 +777,26 @@ export default function TreatmentPage() {
           </Card>
         </div>
       )}
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+              Lưu thành công
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <pre className="whitespace-pre-wrap text-sm">{successMessage}</pre>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowSuccessDialog(false)}>
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

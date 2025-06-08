@@ -12,7 +12,6 @@ import { Plus, Save, Search, Edit, X, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   getProducts,
   createProduct,
@@ -20,12 +19,6 @@ import {
   type Product,
   type ProductFilters,
 } from "@/lib/product-api"
-
-const USAGE_TIMES = [
-  { id: "morning", label: "Sáng" },
-  { id: "afternoon", label: "Chiều" },
-  { id: "evening", label: "Tối" },
-]
 
 export default function ProductsPage() {
   const { toast } = useToast()
@@ -96,24 +89,13 @@ export default function ProductsPage() {
     }
   }
 
-  const handleUsageTimeChange = (timeId: string, checked: boolean) => {
-    setEditingProduct((prev) => {
-      const currentTimes = prev?.usage_times || []
-      if (checked) {
-        return { ...prev!, usage_times: [...currentTimes, timeId] }
-      } else {
-        return { ...prev!, usage_times: currentTimes.filter((t) => t !== timeId) }
-      }
-    })
-  }
-
   return (
     <div className="container mx-auto py-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>Quản lý sản phẩm</CardTitle>
           <Button onClick={() => {
-            setEditingProduct({ usage_times: [] })
+            setEditingProduct({})
             setShowDialog(true)
           }}>
             <Plus className="mr-2 h-4 w-4" />
@@ -150,7 +132,6 @@ export default function ProductsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Tên sản phẩm</TableHead>
-                  <TableHead>Thời điểm sử dụng</TableHead>
                   <TableHead>Ghi chú</TableHead>
                   <TableHead>Trạng thái</TableHead>
                   <TableHead className="text-right">Thao tác</TableHead>
@@ -159,13 +140,13 @@ export default function ProductsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">
+                    <TableCell colSpan={4} className="text-center">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
                 ) : products.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">
+                    <TableCell colSpan={4} className="text-center">
                       {searchTerm ? "Không tìm thấy sản phẩm nào" : "Không có sản phẩm nào"}
                     </TableCell>
                   </TableRow>
@@ -173,11 +154,6 @@ export default function ProductsPage() {
                   products.map((product) => (
                     <TableRow key={product.id}>
                       <TableCell>{product.name}</TableCell>
-                      <TableCell>
-                        {USAGE_TIMES.filter(time => product.usage_times.includes(time.id))
-                          .map(time => time.label)
-                          .join(", ") || "Chưa thiết lập"}
-                      </TableCell>
                       <TableCell>{product.notes}</TableCell>
                       <TableCell>
                         <Badge variant={product.status === "active" ? "default" : "secondary"}>
@@ -224,26 +200,6 @@ export default function ProductsPage() {
                   }
                   required
                 />
-              </div>
-              <div>
-                <Label>Thời điểm sử dụng</Label>
-                <div className="flex flex-col gap-2 mt-2">
-                  {USAGE_TIMES.map((time) => (
-                    <div key={time.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`time-${time.id}`}
-                        checked={editingProduct?.usage_times?.includes(time.id)}
-                        onCheckedChange={(checked) => handleUsageTimeChange(time.id, checked as boolean)}
-                      />
-                      <label
-                        htmlFor={`time-${time.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {time.label}
-                      </label>
-                    </div>
-                  ))}
-                </div>
               </div>
               <div>
                 <Label htmlFor="notes">Ghi chú</Label>

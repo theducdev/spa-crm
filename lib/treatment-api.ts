@@ -271,3 +271,42 @@ export async function getTreatment(treatmentId: string) {
   if (error) throw error
   return data as Treatment & { customer: any }
 }
+
+// Lấy danh sách liệu trình theo khách hàng
+export async function getTreatmentsByCustomer(customerId: string) {
+  const { data, error } = await supabase
+    .from("treatments")
+    .select(`
+      *,
+      customer:customers(*)
+    `)
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false })
+
+  if (error) throw error
+  return data as (Treatment & { customer: any })[]
+}
+
+// Cập nhật liệu trình
+export async function updateTreatment(id: string, treatmentData: Partial<Treatment>) {
+  const { data, error } = await supabase
+    .from("treatments")
+    .update(treatmentData)
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Treatment
+}
+
+// Xóa liệu trình
+export async function deleteTreatment(id: string) {
+  const { error } = await supabase
+    .from("treatments")
+    .delete()
+    .eq("id", id)
+
+  if (error) throw error
+  return true
+}

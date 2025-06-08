@@ -1,6 +1,6 @@
 "use client"
 
-import { Users, FileText, BarChart3, Camera, MessageCircle, Home, Settings, Package } from "lucide-react"
+import { Users, FileText, BarChart3, Camera, MessageCircle, Home, Settings, Package, Calendar, ClipboardCheck, Box, Heart, Image } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -29,9 +29,14 @@ const menuItems = [
     icon: Users,
   },
   {
-    title: "Điều trị",
+    title: "Liệu trình",
+    url: "/treatments",
+    icon: Calendar,
+  },
+  {
+    title: "Ghi nhận điều trị",
     url: "/treatment",
-    icon: FileText,
+    icon: ClipboardCheck,
   },
   {
     title: "Gói điều trị",
@@ -41,12 +46,17 @@ const menuItems = [
   {
     title: "Sản phẩm",
     url: "/products",
-    icon: Package,
+    icon: Box,
   },
   {
-    title: "Chăm sóc KH",
+    title: "Chăm sóc khách hàng",
     url: "/customer-care",
-    icon: MessageCircle,
+    icon: Heart,
+  },
+  {
+    title: "Thư viện ảnh",
+    url: "/gallery",
+    icon: Image,
   },
   {
     title: "Báo cáo",
@@ -54,9 +64,9 @@ const menuItems = [
     icon: BarChart3,
   },
   {
-    title: "Thư viện ảnh",
-    url: "/gallery",
-    icon: Camera,
+    title: "Cài đặt",
+    url: "/settings",
+    icon: Settings,
   },
 ]
 

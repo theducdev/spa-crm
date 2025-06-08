@@ -32,7 +32,7 @@ export interface ComboboxProps {
 
 export function Combobox({
   options,
-  value,
+  value = "",
   onValueChange,
   placeholder = "Chọn một mục...",
   searchPlaceholder = "Tìm kiếm...",
@@ -122,7 +122,7 @@ export function Combobox({
                 <span className="text-muted-foreground">{placeholder}</span>
               )
             ) : (
-              <span className="truncate">
+              <span className={cn("truncate", !value && "text-muted-foreground")}>
                 {value
                   ? options.find((option) => option.value === value)?.label
                   : placeholder}
@@ -132,15 +132,22 @@ export function Combobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
-        <Command shouldFilter={false}>
+      
+      <PopoverContent 
+        className="w-full min-w-[200px] p-0" 
+        align="start"
+        sideOffset={4}
+        style={{ zIndex: 9999 }}
+      >
+        <Command shouldFilter={false} className="w-full">
           <CommandInput 
             placeholder={searchPlaceholder} 
             value={searchQuery}
             onValueChange={setSearchQuery}
+            className="h-9"
           />
           <CommandEmpty>{emptyText}</CommandEmpty>
-          <CommandGroup>
+          <CommandGroup className="max-h-[200px] overflow-auto">
             {filteredOptions.map((option) => (
               <CommandItem
                 key={option.value}
