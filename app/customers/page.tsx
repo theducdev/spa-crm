@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,8 +8,16 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Upload, Save, Search, Edit, Eye, Phone, X, Loader2 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Plus, Upload, Save, Search, Edit, Eye, Phone, X, Loader2, Trash2, Check } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -19,12 +27,38 @@ import {
   updateCustomer,
   uploadCustomerFaceImage,
   deleteCustomerFaceImage,
+  deleteCustomer,
   type Customer,
   type CustomerFilters,
 } from "@/lib/customer-api"
 import { getTreatmentPackages, type TreatmentPackage } from "@/lib/treatment-package-api"
 import { createTreatment } from "@/lib/treatment-api"
-import { debounce } from "lodash"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+
+interface CustomerFormData {
+  name: string
+  phone: string
+  email: string
+  gender: "male" | "female" | null
+  birth_date: string
+  address: string
+  notes: string
+  status: "active" | "inactive" | "pending"
+  treatment_package_id: string
+  treatmentNotes: string
+}
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -53,22 +87,66 @@ export default function CustomersPage() {
   const { toast } = useToast()
 
   // Form data for add/edit
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CustomerFormData>({
     name: "",
     phone: "",
     email: "",
-    gender: "" as "male" | "female" | null,
+    gender: null,
     birth_date: "",
     address: "",
     notes: "",
-    status: "active" as const,
+    status: "active",
     treatment_package_id: "",
+    treatmentNotes: "",
   })
+
+  // Add formRef to store temporary form data
+  const formRef = useRef<CustomerFormData>({
+    name: "",
+    phone: "",
+    email: "",
+    gender: null,
+    birth_date: "",
+    address: "",
+    notes: "",
+    status: "active",
+    treatment_package_id: "",
+    treatmentNotes: "",
+  })
+
+  // Update formRef when formData changes
+  useEffect(() => {
+    formRef.current = formData
+  }, [formData])
+
+  // Function to update formRef without causing re-render
+  const updateFormField = (field: keyof CustomerFormData, value: any) => {
+    formRef.current = {
+      ...formRef.current,
+      [field]: value
+    }
+  }
+
+  // Function to sync formRef with formData (use this when needed, e.g., on blur or submit)
+  const syncFormData = () => {
+    setFormData(formRef.current)
+  }
 
   // Thêm vào phần state declarations
   const [uploadingNewCustomerImage, setUploadingNewCustomerImage] = useState(false)
   const [newCustomerImageFile, setNewCustomerImageFile] = useState<File | null>(null)
   const [newCustomerImagePreview, setNewCustomerImagePreview] = useState<string | null>(null)
+
+  // Delete confirmation
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const [treatmentSearchOpen, setTreatmentSearchOpen] = useState(false)
+  const [treatmentSearchValue, setTreatmentSearchValue] = useState("")
+
+  // Thêm ref cho textarea
+  const treatmentNotesRef = useRef<HTMLTextAreaElement>(null)
 
   // Load customers on mount and when filters change
   useEffect(() => {
@@ -147,13 +225,18 @@ export default function CustomersPage() {
       name: "",
       phone: "",
       email: "",
-      gender: "",
+      gender: null,
       birth_date: "",
       address: "",
       notes: "",
       status: "active",
       treatment_package_id: "",
+      treatmentNotes: "",
     })
+    // Reset ref value
+    if (treatmentNotesRef.current) {
+      treatmentNotesRef.current.value = ""
+    }
     removeNewCustomerImage()
   }
 
@@ -198,6 +281,7 @@ export default function CustomersPage() {
             total_sessions: selectedPackage.total_sessions,
             price: selectedPackage.price,
             start_date: new Date().toISOString().split("T")[0],
+            notes: treatmentNotesRef.current?.value || ""
           })
         }
       }
@@ -274,12 +358,13 @@ export default function CustomersPage() {
       name: customer.name,
       phone: customer.phone || "",
       email: customer.email || "",
-      gender: customer.gender || "",
+      gender: customer.gender,
       birth_date: customer.birth_date || "",
       address: customer.address || "",
       notes: customer.notes || "",
       status: customer.status,
-      treatment_package_id: customer.treatment_package_id || "",
+      treatment_package_id: "",
+      treatmentNotes: customer.treatment_notes || "",
     })
     setIsEditingCustomer(true)
   }
@@ -343,6 +428,61 @@ export default function CustomersPage() {
   const formatDate = (dateString: string) => {
     if (!dateString) return "Chưa có"
     return new Date(dateString).toLocaleDateString("vi-VN")
+  }
+
+  const maskPhoneNumber = (phone: string | null) => {
+    if (!phone) return "Chưa có"
+    return phone.length > 5 ? `*****${phone.slice(-5)}` : phone
+  }
+
+  const handleDeleteCustomer = async () => {
+    if (!customerToDelete) return
+
+    setDeleting(true)
+    try {
+      await deleteCustomer(customerToDelete.id)
+      toast({
+        title: "Thành công",
+        description: "Đã xóa khách hàng",
+      })
+      setIsConfirmingDelete(false)
+      setCustomerToDelete(null)
+      loadCustomers()
+    } catch (error: any) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể xóa khách hàng",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleInputChange = useCallback((field: keyof CustomerFormData) => {
+    return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setFormData(prev => ({ ...prev, [field]: e.target.value }))
+    }
+  }, [])
+
+  const handleSelectChange = useCallback((field: keyof CustomerFormData) => {
+    return (value: any) => {
+      setFormData(prev => ({ ...prev, [field]: value }))
+    }
+  }, [])
+
+  const handleGenderChange = useCallback((value: "male" | "female" | "") => {
+    setFormData(prev => ({
+      ...prev,
+      gender: value === "" ? null : value
+    }))
+  }, [])
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("vi-VN", { 
+      style: "currency", 
+      currency: "VND" 
+    }).format(value)
   }
 
   return (
@@ -423,23 +563,46 @@ export default function CustomersPage() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="treatmentPackage">Gói điều trị *</Label>
-                      <Select
-                        value={formData.treatment_package_id}
-                        onValueChange={(value) => setFormData((prev) => ({ ...prev, treatment_package_id: value }))}
-                        disabled={loadingPackages}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Chọn gói điều trị" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {treatmentPackages.map((pkg) => (
-                            <SelectItem key={pkg.id} value={pkg.id}>
-                              {pkg.name} - {new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(pkg.price)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="treatment_package">Gói điều trị *</Label>
+                      <div className="relative">
+                        <Command className="rounded-lg border shadow-sm">
+                          <CommandInput 
+                            id="treatment_package"
+                            placeholder="Tìm gói điều trị..." 
+                            className="h-9"
+                            value={treatmentSearchValue}
+                            onValueChange={setTreatmentSearchValue}
+                          />
+                          <CommandEmpty>Không tìm thấy gói điều trị</CommandEmpty>
+                          <CommandGroup className="max-h-[200px] overflow-auto">
+                            {treatmentPackages.map((pkg) => (
+                              <CommandItem
+                                key={pkg.id}
+                                value={pkg.name}
+                                onSelect={() => {
+                                  updateFormField("treatment_package_id", pkg.id)
+                                  syncFormData()
+                                  setTreatmentSearchValue(pkg.name)
+                                }}
+                                className="flex items-center gap-2"
+                              >
+                                <Check
+                                  className={cn(
+                                    "h-4 w-4",
+                                    formData.treatment_package_id === pkg.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex flex-col flex-1">
+                                  <span className="font-medium">{pkg.name}</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    {formatCurrency(pkg.price)}
+                                  </span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </Command>
+                      </div>
                     </div>
                     <div>
                       <Label htmlFor="startDate">Ngày bắt đầu</Label>
@@ -460,7 +623,17 @@ export default function CustomersPage() {
 
                   <div>
                     <Label htmlFor="treatmentNotes">Ghi chú về liệu trình</Label>
-                    <Textarea id="treatmentNotes" placeholder="Ghi chú về tình trạng da, yêu cầu đặc biệt..." />
+                    <Textarea 
+                      ref={treatmentNotesRef}
+                      id="treatmentNotes" 
+                      placeholder="Ghi chú về tình trạng da, yêu cầu đặc biệt..."
+                      defaultValue={formData.treatmentNotes}
+                      onChange={(e) => {
+                        if (formRef.current) {
+                          formRef.current.treatmentNotes = e.target.value
+                        }
+                      }}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -470,8 +643,9 @@ export default function CustomersPage() {
                   <Label htmlFor="name">Họ và tên *</Label>
                   <Input
                     id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                    defaultValue={formData.name}
+                    onChange={(e) => updateFormField("name", e.target.value)}
+                    onBlur={syncFormData}
                     placeholder="Nhập họ tên đầy đủ"
                   />
                 </div>
@@ -479,8 +653,9 @@ export default function CustomersPage() {
                   <Label htmlFor="phone">Số điện thoại</Label>
                   <Input
                     id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                    defaultValue={formData.phone}
+                    onChange={(e) => updateFormField("phone", e.target.value)}
+                    onBlur={syncFormData}
                     placeholder="0901234567"
                   />
                 </div>
@@ -492,16 +667,20 @@ export default function CustomersPage() {
                   <Input
                     id="email"
                     type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                    defaultValue={formData.email}
+                    onChange={(e) => updateFormField("email", e.target.value)}
+                    onBlur={syncFormData}
                     placeholder="email@example.com"
                   />
                 </div>
                 <div>
                   <Label htmlFor="gender">Giới tính</Label>
                   <Select
-                    value={formData.gender}
-                    onValueChange={(value) => setFormData((prev) => ({ ...prev, gender: value }))}
+                    defaultValue={formData.gender || ""}
+                    onValueChange={(value) => {
+                      updateFormField("gender", value === "" ? null : value)
+                      syncFormData()
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Chọn giới tính" />
@@ -520,15 +699,19 @@ export default function CustomersPage() {
                   <Input
                     id="birth_date"
                     type="date"
-                    value={formData.birth_date}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, birth_date: e.target.value }))}
+                    defaultValue={formData.birth_date}
+                    onChange={(e) => updateFormField("birth_date", e.target.value)}
+                    onBlur={syncFormData}
                   />
                 </div>
                 <div>
                   <Label htmlFor="status">Trạng thái</Label>
                   <Select
-                    value={formData.status}
-                    onValueChange={(value: any) => setFormData((prev) => ({ ...prev, status: value }))}
+                    defaultValue={formData.status}
+                    onValueChange={(value: "active" | "inactive" | "pending") => {
+                      updateFormField("status", value)
+                      syncFormData()
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -546,8 +729,9 @@ export default function CustomersPage() {
                 <Label htmlFor="address">Địa chỉ</Label>
                 <Textarea
                   id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
+                  defaultValue={formData.address}
+                  onChange={(e) => updateFormField("address", e.target.value)}
+                  onBlur={syncFormData}
                   placeholder="Nhập địa chỉ đầy đủ"
                 />
               </div>
@@ -556,8 +740,9 @@ export default function CustomersPage() {
                 <Label htmlFor="notes">Ghi chú</Label>
                 <Textarea
                   id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
+                  defaultValue={formData.notes}
+                  onChange={(e) => updateFormField("notes", e.target.value)}
+                  onBlur={syncFormData}
                   placeholder="Ghi chú về khách hàng..."
                 />
               </div>
@@ -641,7 +826,7 @@ export default function CustomersPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <h3 className="font-medium truncate">{customer.name}</h3>
-                        <p className="text-sm text-muted-foreground">{customer.phone || "Chưa có SĐT"}</p>
+                        <p className="text-sm text-muted-foreground">{maskPhoneNumber(customer.phone)}</p>
                         <p className="text-sm text-muted-foreground truncate">{customer.email || "Chưa có email"}</p>
                       </div>
                       <div className="flex flex-col items-end gap-2 shrink-0">{getStatusBadge(customer.status)}</div>
@@ -660,12 +845,18 @@ export default function CustomersPage() {
                         <Edit className="h-4 w-4 mr-1" />
                         Sửa
                       </Button>
-                      {customer.phone && (
-                        <Button size="sm" variant="outline" className="flex-1">
-                          <Phone className="h-4 w-4 mr-1" />
-                          Gọi
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          setCustomerToDelete(customer)
+                          setIsConfirmingDelete(true)
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Xóa
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -689,7 +880,7 @@ export default function CustomersPage() {
                     {customers.map((customer) => (
                       <TableRow key={customer.id}>
                         <TableCell className="font-medium">{customer.name}</TableCell>
-                        <TableCell>{customer.phone || "Chưa có"}</TableCell>
+                        <TableCell>{maskPhoneNumber(customer.phone)}</TableCell>
                         <TableCell>{customer.email || "Chưa có"}</TableCell>
                         <TableCell>
                           {customer.gender === "male" ? "Nam" : customer.gender === "female" ? "Nữ" : "Chưa có"}
@@ -703,6 +894,16 @@ export default function CustomersPage() {
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => handleEditClick(customer)}>
                               <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setCustomerToDelete(customer)
+                                setIsConfirmingDelete(true)
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -749,7 +950,7 @@ export default function CustomersPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Số điện thoại</Label>
-                  <p className="text-base">{selectedCustomer.phone || "Chưa có"}</p>
+                  <p className="text-base">{maskPhoneNumber(selectedCustomer.phone)}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Email</Label>
@@ -860,7 +1061,7 @@ export default function CustomersPage() {
                 <Input
                   id="edit-name"
                   value={formData.name}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Nhập họ tên đầy đủ"
                 />
               </div>
@@ -869,7 +1070,7 @@ export default function CustomersPage() {
                 <Input
                   id="edit-phone"
                   value={formData.phone}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                   placeholder="0901234567"
                 />
               </div>
@@ -882,15 +1083,15 @@ export default function CustomersPage() {
                   id="edit-email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="email@example.com"
                 />
               </div>
               <div>
                 <Label htmlFor="edit-gender">Giới tính</Label>
                 <Select
-                  value={formData.gender}
-                  onValueChange={(value) => setFormData((prev) => ({ ...prev, gender: value }))}
+                  value={formData.gender || ""}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, gender: value === "" ? null : value as "male" | "female" }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Chọn giới tính" />
@@ -910,14 +1111,14 @@ export default function CustomersPage() {
                   id="edit-birth_date"
                   type="date"
                   value={formData.birth_date}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, birth_date: e.target.value }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, birth_date: e.target.value }))}
                 />
               </div>
               <div>
                 <Label htmlFor="edit-status">Trạng thái</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value: any) => setFormData((prev) => ({ ...prev, status: value }))}
+                  onValueChange={(value: "active" | "inactive" | "pending") => setFormData(prev => ({ ...prev, status: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -936,7 +1137,7 @@ export default function CustomersPage() {
               <Textarea
                 id="edit-address"
                 value={formData.address}
-                onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
                 placeholder="Nhập địa chỉ đầy đủ"
               />
             </div>
@@ -946,7 +1147,7 @@ export default function CustomersPage() {
               <Textarea
                 id="edit-notes"
                 value={formData.notes}
-                onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="Ghi chú về khách hàng..."
               />
             </div>
@@ -961,6 +1162,38 @@ export default function CustomersPage() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isConfirmingDelete} onOpenChange={setIsConfirmingDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa khách hàng</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc chắn muốn xóa khách hàng {customerToDelete?.name}? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsConfirmingDelete(false)
+                setCustomerToDelete(null)
+              }}
+              disabled={deleting}
+            >
+              Hủy
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteCustomer} disabled={deleting}>
+              {deleting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              {deleting ? "Đang xóa..." : "Xóa"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

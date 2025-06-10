@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, User, Calendar, Loader2, Edit, Trash2, AlertCircle } from "lucide-react"
+import { Plus, Search, User, Calendar, Loader2, Edit, Trash2, AlertCircle, Check } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
@@ -16,6 +16,15 @@ import { getTreatmentsByCustomer, createTreatment, updateTreatment, deleteTreatm
 import type { Treatment } from "@/lib/supabase"
 import { getTreatmentPackages, type TreatmentPackage } from "@/lib/treatment-package-api"
 import { maskPhoneNumber } from "@/lib/utils"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command"
+import { cn } from "@/lib/utils"
+import { Textarea } from "@/components/ui/textarea"
 
 export default function TreatmentsPage() {
   const { toast } = useToast()
@@ -29,12 +38,14 @@ export default function TreatmentsPage() {
   const [showEditTreatmentDialog, setShowEditTreatmentDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null)
+  const [treatmentSearchValue, setTreatmentSearchValue] = useState("")
 
   // Form data for new/edit treatment
   const [formData, setFormData] = useState({
     treatment_package_id: "",
     start_date: new Date().toISOString().split("T")[0],
     status: "active" as "active" | "completed",
+    notes: ""
   })
 
   useEffect(() => {
@@ -128,6 +139,7 @@ export default function TreatmentsPage() {
         total_sessions: selectedPackage.total_sessions,
         price: selectedPackage.price,
         start_date: formData.start_date,
+        notes: formData.notes
       })
 
       toast({
@@ -153,6 +165,7 @@ export default function TreatmentsPage() {
       treatment_package_id: treatmentPackages.find(p => p.name === treatment.treatment_name)?.id || "",
       start_date: treatment.start_date,
       status: treatment.status as "active" | "completed",
+      notes: treatment.notes || ""
     })
     setShowEditTreatmentDialog(true)
   }
@@ -182,6 +195,7 @@ export default function TreatmentsPage() {
         price: selectedPackage.price,
         start_date: formData.start_date,
         status: formData.status,
+        notes: formData.notes
       })
 
       toast({
@@ -222,6 +236,14 @@ export default function TreatmentsPage() {
         variant: "destructive",
       })
     }
+  }
+
+  // Add this function to format currency
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("vi-VN", { 
+      style: "currency", 
+      currency: "VND" 
+    }).format(value)
   }
 
   return (
@@ -380,24 +402,42 @@ export default function TreatmentsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="package">Gói điều trị</Label>
-              <Select
-                value={formData.treatment_package_id}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, treatment_package_id: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn gói điều trị" />
-                </SelectTrigger>
-                <SelectContent>
+              <Label htmlFor="treatment_package">Gói điều trị</Label>
+              <Command className="border rounded-md">
+                <CommandInput
+                  id="treatment_package"
+                  placeholder="Tìm gói điều trị..."
+                  value={treatmentSearchValue}
+                  onValueChange={setTreatmentSearchValue}
+                />
+                <CommandGroup className="max-h-[200px] overflow-auto">
                   {treatmentPackages.map((pkg) => (
-                    <SelectItem key={pkg.id} value={pkg.id}>
-                      {pkg.name} - {pkg.total_sessions} buổi
-                    </SelectItem>
+                    <CommandItem
+                      key={pkg.id}
+                      value={pkg.name}
+                      onSelect={() => {
+                        setFormData(prev => ({ ...prev, treatment_package_id: pkg.id }))
+                        setTreatmentSearchValue(pkg.name)
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <Check
+                        className={cn(
+                          "h-4 w-4",
+                          formData.treatment_package_id === pkg.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <div className="flex flex-col flex-1">
+                        <span className="font-medium">{pkg.name}</span>
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>{pkg.total_sessions} buổi</span>
+                          <span>{formatCurrency(pkg.price)}</span>
+                        </div>
+                      </div>
+                    </CommandItem>
                   ))}
-                </SelectContent>
-              </Select>
+                </CommandGroup>
+              </Command>
             </div>
             <div className="space-y-2">
               <Label htmlFor="start_date">Ngày bắt đầu</Label>
@@ -408,6 +448,15 @@ export default function TreatmentsPage() {
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, start_date: e.target.value }))
                 }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Ghi chú về liệu trình</Label>
+              <Textarea
+                id="notes"
+                placeholder="Ghi chú về tình trạng da, yêu cầu đặc biệt..."
+                value={formData.notes}
+                onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
               />
             </div>
             <Button className="w-full" onClick={handleCreateTreatment}>
@@ -432,24 +481,46 @@ export default function TreatmentsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="package">Gói điều trị</Label>
-              <Select
-                value={formData.treatment_package_id}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, treatment_package_id: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn gói điều trị" />
-                </SelectTrigger>
-                <SelectContent>
-                  {treatmentPackages.map((pkg) => (
-                    <SelectItem key={pkg.id} value={pkg.id}>
-                      {pkg.name} - {pkg.total_sessions} buổi
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="treatment_package_edit">Gói điều trị</Label>
+              <div className="relative">
+                <Command className="rounded-lg border shadow-sm">
+                  <CommandInput 
+                    id="treatment_package_edit"
+                    placeholder="Tìm gói điều trị..." 
+                    className="h-9"
+                    value={treatmentSearchValue}
+                    onValueChange={setTreatmentSearchValue}
+                  />
+                  <CommandEmpty>Không tìm thấy gói điều trị</CommandEmpty>
+                  <CommandGroup className="max-h-[200px] overflow-auto">
+                    {treatmentPackages.map((pkg) => (
+                      <CommandItem
+                        key={pkg.id}
+                        value={pkg.name}
+                        onSelect={() => {
+                          setFormData(prev => ({ ...prev, treatment_package_id: pkg.id }))
+                          setTreatmentSearchValue(pkg.name)
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <Check
+                          className={cn(
+                            "h-4 w-4",
+                            formData.treatment_package_id === pkg.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex flex-col flex-1">
+                          <span className="font-medium">{pkg.name}</span>
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>{pkg.total_sessions} buổi</span>
+                            <span>{formatCurrency(pkg.price)}</span>
+                          </div>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="start_date">Ngày bắt đầu</Label>
@@ -478,6 +549,15 @@ export default function TreatmentsPage() {
                   <SelectItem value="completed">Hoàn thành</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Ghi chú về liệu trình</Label>
+              <Textarea
+                id="notes"
+                placeholder="Ghi chú về tình trạng da, yêu cầu đặc biệt..."
+                value={formData.notes}
+                onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
+              />
             </div>
             <Button className="w-full" onClick={handleUpdateTreatment}>
               Cập nhật liệu trình

@@ -27,6 +27,7 @@ export async function createTreatment(treatmentData: {
   total_sessions: number
   price: number
   start_date: string
+  notes?: string
 }) {
   const { data, error } = await supabase
     .from("treatments")

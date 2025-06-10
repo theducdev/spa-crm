@@ -658,7 +658,7 @@ export default function TreatmentPage() {
                             products.splice(index, 1);
                             setSessionData(prev => ({ ...prev, products_used: JSON.stringify(products) }));
                           }}
-                        >
+                >
                           <X className="h-4 w-4" />
                         </Button>
                       </div>

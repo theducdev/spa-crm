@@ -166,3 +166,38 @@ export async function deleteCustomerFaceImage(customerId: string): Promise<Custo
 
   return data as Customer
 }
+
+// Xóa khách hàng
+export async function deleteCustomer(id: string): Promise<void> {
+  // Lấy thông tin khách hàng để kiểm tra ảnh
+  const { data: customer, error: fetchError } = await supabase
+    .from("customers")
+    .select("face_image_path")
+    .eq("id", id)
+    .single()
+
+  if (fetchError) {
+    console.error("Error fetching customer:", fetchError)
+    throw new Error("Không thể tải thông tin khách hàng")
+  }
+
+  // Nếu có ảnh, xóa ảnh từ storage
+  if (customer?.face_image_path) {
+    const { error: deleteImageError } = await supabase.storage
+      .from("treatment-images")
+      .remove([customer.face_image_path])
+
+    if (deleteImageError) {
+      console.error("Error deleting image:", deleteImageError)
+      // Tiếp tục xử lý ngay cả khi xóa file thất bại
+    }
+  }
+
+  // Xóa khách hàng từ database
+  const { error } = await supabase.from("customers").delete().eq("id", id)
+
+  if (error) {
+    console.error("Error deleting customer:", error)
+    throw new Error("Không thể xóa khách hàng")
+  }
+}
