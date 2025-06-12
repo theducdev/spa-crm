@@ -66,8 +66,10 @@ export async function updateProduct(id: string, product: Partial<Product>) {
 }
 
 export async function deleteProduct(id: string) {
-  const { error } = await supabase.from("products").delete().eq("id", id)
+  const { error } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", id)
 
   if (error) throw error
-  return true
 } 

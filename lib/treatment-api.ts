@@ -34,7 +34,7 @@ export async function createTreatment(treatmentData: {
     .insert([
       {
         ...treatmentData,
-        current_session: 1,
+        current_session: 0,
         status: "active",
       },
     ])

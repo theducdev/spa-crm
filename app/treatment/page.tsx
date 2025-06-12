@@ -227,12 +227,19 @@ export default function TreatmentPage() {
     setSaving(true)
     try {
       const currentSession = sessions[currentSessionIndex]
+      
+      // Validate and format date fields
+      const formattedData = {
+        ...sessionData,
+        next_appointment: sessionData.next_appointment || undefined, // Convert empty string to undefined
+        products_used: sessionData.products_used
+      }
+
       await upsertTreatmentSession({
         id: currentSession.id,
         treatment_id: selectedTreatment.id,
         session_number: currentSession.session_number,
-        ...sessionData,
-        products_used: sessionData.products_used
+        ...formattedData
       })
 
       // Parse products for display

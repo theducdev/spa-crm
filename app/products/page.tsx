@@ -8,14 +8,15 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Save, Search, Edit, X, Loader2 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Plus, Save, Search, Edit, X, Trash2, Loader2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
 import {
   getProducts,
   createProduct,
   updateProduct,
+  deleteProduct,
   type Product,
   type ProductFilters,
 } from "@/lib/product-api"
@@ -31,6 +32,8 @@ export default function ProductsPage() {
   const [showDialog, setShowDialog] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null)
 
   useEffect(() => {
     loadProducts()
@@ -84,6 +87,27 @@ export default function ProductsPage() {
       toast({
         title: "Lỗi",
         description: "Không thể lưu sản phẩm",
+        variant: "destructive",
+      })
+    }
+  }
+
+  async function handleDelete() {
+    if (!productToDelete) return
+
+    try {
+      await deleteProduct(productToDelete.id)
+      toast({
+        title: "Thành công",
+        description: "Đã xóa sản phẩm",
+      })
+      setShowDeleteDialog(false)
+      loadProducts()
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Lỗi",
+        description: "Không thể xóa sản phẩm",
         variant: "destructive",
       })
     }
@@ -161,16 +185,28 @@ export default function ProductsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setEditingProduct(product)
-                            setShowDialog(true)
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingProduct(product)
+                              setShowDialog(true)
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setProductToDelete(product)
+                              setShowDeleteDialog(true)
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -243,6 +279,34 @@ export default function ProductsPage() {
               </div>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa sản phẩm</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 pt-4">
+                <p>Bạn có chắc chắn muốn xóa sản phẩm này? Hành động này không thể hoàn tác.</p>
+                <p className="font-medium">{productToDelete?.name}</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+            >
+              Xóa sản phẩm
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
