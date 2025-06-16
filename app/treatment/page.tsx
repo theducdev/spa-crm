@@ -27,6 +27,7 @@ import { TreatmentProgress } from "@/components/treatment-progress"
 import { getProducts, type Product } from "@/lib/product-api"
 import { maskPhoneNumber } from "@/lib/utils"
 import { useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 
 const USAGE_TIMES = [
   { id: "morning", label: "Sáng" },
@@ -56,7 +57,7 @@ const convertProductsFormat = (productsString: string): string => {
   }
 }
 
-export default function TreatmentPage() {
+function TreatmentPageContent() {
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null)
   const [sessions, setSessions] = useState<TreatmentSession[]>([])
@@ -824,5 +825,13 @@ export default function TreatmentPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function TreatmentPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <TreatmentPageContent />
+    </Suspense>
   )
 }
