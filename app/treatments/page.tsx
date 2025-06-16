@@ -25,9 +25,11 @@ import {
 } from "@/components/ui/command"
 import { cn } from "@/lib/utils"
 import { Textarea } from "@/components/ui/textarea"
+import { useRouter } from "next/navigation"
 
 export default function TreatmentsPage() {
   const { toast } = useToast()
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -246,6 +248,10 @@ export default function TreatmentsPage() {
     }).format(value)
   }
 
+  const handleTreatmentClick = (treatmentId: string) => {
+    router.push(`/treatment?id=${treatmentId}`)
+  }
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -350,7 +356,14 @@ export default function TreatmentsPage() {
                 <TableBody>
                   {treatments.map((treatment) => (
                     <TableRow key={treatment.id}>
-                      <TableCell>{treatment.treatment_name}</TableCell>
+                      <TableCell>
+                        <button
+                          onClick={() => handleTreatmentClick(treatment.id)}
+                          className="text-blue-600 hover:text-blue-800 hover:underline text-left"
+                        >
+                          {treatment.treatment_name}
+                        </button>
+                      </TableCell>
                       <TableCell>
                         {treatment.current_session}/{treatment.total_sessions} buổi
                       </TableCell>

@@ -46,6 +46,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
+import { getCustomerTags, type CustomerTag } from "@/lib/customer-tag-api"
 
 interface CustomerFormData {
   name: string
@@ -56,8 +57,7 @@ interface CustomerFormData {
   address: string
   notes: string
   status: "active" | "inactive" | "pending"
-  treatment_package_id: string
-  treatmentNotes: string
+  tag_id: string | null
 }
 
 export default function CustomersPage() {
@@ -96,8 +96,7 @@ export default function CustomersPage() {
     address: "",
     notes: "",
     status: "active",
-    treatment_package_id: "",
-    treatmentNotes: "",
+    tag_id: null,
   })
 
   // Add formRef to store temporary form data
@@ -110,9 +109,11 @@ export default function CustomersPage() {
     address: "",
     notes: "",
     status: "active",
-    treatment_package_id: "",
-    treatmentNotes: "",
+    tag_id: null,
   })
+
+  // Thêm state riêng cho gói điều trị
+  const [selectedTreatmentPackage, setSelectedTreatmentPackage] = useState<string>("")
 
   // Update formRef when formData changes
   useEffect(() => {
@@ -148,10 +149,13 @@ export default function CustomersPage() {
   // Thêm ref cho textarea
   const treatmentNotesRef = useRef<HTMLTextAreaElement>(null)
 
+  const [tags, setTags] = useState<CustomerTag[]>([])
+
   // Load customers on mount and when filters change
   useEffect(() => {
     loadCustomers()
     loadTreatmentPackages()
+    loadTags()
   }, [filters])
 
   // Handle search with debounce
@@ -196,6 +200,20 @@ export default function CustomersPage() {
     }
   }
 
+  const loadTags = async () => {
+    try {
+      const data = await getCustomerTags()
+      setTags(data)
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách thẻ tag",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsSearching(true)
     setSearchTerm(e.target.value)
@@ -230,14 +248,20 @@ export default function CustomersPage() {
       address: "",
       notes: "",
       status: "active",
-      treatment_package_id: "",
-      treatmentNotes: "",
+      tag_id: null,
     })
-    // Reset ref value
-    if (treatmentNotesRef.current) {
-      treatmentNotesRef.current.value = ""
+    formRef.current = {
+      name: "",
+      phone: "",
+      email: "",
+      gender: null,
+      birth_date: "",
+      address: "",
+      notes: "",
+      status: "active",
+      tag_id: null,
     }
-    removeNewCustomerImage()
+    setSelectedTreatmentPackage("")
   }
 
   const handleAddCustomer = async () => {
@@ -262,6 +286,7 @@ export default function CustomersPage() {
         address: formData.address || null,
         notes: formData.notes || null,
         status: formData.status,
+        tag_id: formData.tag_id,
       }
       const newCustomer = await createCustomer(customerData)
 
@@ -272,8 +297,8 @@ export default function CustomersPage() {
       }
 
       // Nếu có chọn gói điều trị, tạo liệu trình
-      if (formData.treatment_package_id) {
-        const selectedPackage = treatmentPackages.find((pkg) => pkg.id === formData.treatment_package_id)
+      if (selectedTreatmentPackage) {
+        const selectedPackage = treatmentPackages.find((pkg) => pkg.id === selectedTreatmentPackage)
         if (selectedPackage) {
           await createTreatment({
             customer_id: newCustomer.id,
@@ -281,7 +306,7 @@ export default function CustomersPage() {
             total_sessions: selectedPackage.total_sessions,
             price: selectedPackage.price,
             start_date: new Date().toISOString().split("T")[0],
-            notes: treatmentNotesRef.current?.value || ""
+            notes: formData.notes || ""
           })
         }
       }
@@ -307,25 +332,28 @@ export default function CustomersPage() {
   }
 
   const handleEditCustomer = async () => {
-    if (!selectedCustomer || !formData.name.trim()) {
-      toast({
-        title: "Lỗi",
-        description: "Vui lòng nhập họ tên khách hàng",
-        variant: "destructive",
-      })
-      return
-    }
+    if (!selectedCustomer) return
 
     setSaving(true)
     try {
-      await updateCustomer(selectedCustomer.id, formData)
+      const customerData = {
+        name: formData.name,
+        phone: formData.phone || null,
+        email: formData.email || null,
+        gender: formData.gender as "male" | "female" | null,
+        birth_date: formData.birth_date || null,
+        address: formData.address || null,
+        notes: formData.notes || null,
+        status: formData.status,
+        tag_id: formData.tag_id,
+      }
+      await updateCustomer(selectedCustomer.id, customerData)
+
       toast({
         title: "Thành công",
         description: "Đã cập nhật thông tin khách hàng",
       })
       setIsEditingCustomer(false)
-      setSelectedCustomer(null)
-      resetForm()
       loadCustomers()
     } catch (error: any) {
       toast({
@@ -338,18 +366,20 @@ export default function CustomersPage() {
     }
   }
 
-  const handleViewCustomer = async (customer: Customer) => {
-    try {
-      const fullCustomerData = await getCustomer(customer.id)
-      setSelectedCustomer(fullCustomerData)
-      setIsViewingCustomer(true)
-    } catch (error: any) {
-      toast({
-        title: "Lỗi",
-        description: error.message || "Không thể tải thông tin khách hàng",
-        variant: "destructive",
-      })
-    }
+  const handleViewCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setFormData({
+      name: customer.name,
+      phone: customer.phone || "",
+      email: customer.email || "",
+      gender: customer.gender as "male" | "female" | null,
+      birth_date: customer.birth_date || "",
+      address: customer.address || "",
+      notes: customer.notes || "",
+      status: customer.status,
+      tag_id: customer.tag_id,
+    })
+    setIsViewingCustomer(true)
   }
 
   const handleEditClick = (customer: Customer) => {
@@ -363,8 +393,7 @@ export default function CustomersPage() {
       address: customer.address || "",
       notes: customer.notes || "",
       status: customer.status,
-      treatment_package_id: "",
-      treatmentNotes: customer.treatment_notes || "",
+      tag_id: customer.tag_id,
     })
     setIsEditingCustomer(true)
   }
@@ -563,46 +592,22 @@ export default function CustomersPage() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="treatment_package">Gói điều trị *</Label>
-                      <div className="relative">
-                        <Command className="rounded-lg border shadow-sm">
-                          <CommandInput 
-                            id="treatment_package"
-                            placeholder="Tìm gói điều trị..." 
-                            className="h-9"
-                            value={treatmentSearchValue}
-                            onValueChange={setTreatmentSearchValue}
-                          />
-                          <CommandEmpty>Không tìm thấy gói điều trị</CommandEmpty>
-                          <CommandGroup className="max-h-[200px] overflow-auto">
-                            {treatmentPackages.map((pkg) => (
-                              <CommandItem
-                                key={pkg.id}
-                                value={pkg.name}
-                                onSelect={() => {
-                                  updateFormField("treatment_package_id", pkg.id)
-                                  syncFormData()
-                                  setTreatmentSearchValue(pkg.name)
-                                }}
-                                className="flex items-center gap-2"
-                              >
-                                <Check
-                                  className={cn(
-                                    "h-4 w-4",
-                                    formData.treatment_package_id === pkg.id ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                <div className="flex flex-col flex-1">
-                                  <span className="font-medium">{pkg.name}</span>
-                                  <span className="text-sm text-muted-foreground">
-                                    {formatCurrency(pkg.price)}
-                                  </span>
-                                </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </Command>
-                      </div>
+                      <Label htmlFor="treatment_package">Gói điều trị</Label>
+                      <Select
+                        value={selectedTreatmentPackage}
+                        onValueChange={setSelectedTreatmentPackage}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Chọn gói điều trị" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {treatmentPackages.map((pkg) => (
+                            <SelectItem key={pkg.id} value={pkg.id}>
+                              {pkg.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor="startDate">Ngày bắt đầu</Label>
@@ -627,10 +632,10 @@ export default function CustomersPage() {
                       ref={treatmentNotesRef}
                       id="treatmentNotes" 
                       placeholder="Ghi chú về tình trạng da, yêu cầu đặc biệt..."
-                      defaultValue={formData.treatmentNotes}
+                      defaultValue={formData.notes}
                       onChange={(e) => {
                         if (formRef.current) {
-                          formRef.current.treatmentNotes = e.target.value
+                          formRef.current.notes = e.target.value
                         }
                       }}
                     />
@@ -736,15 +741,45 @@ export default function CustomersPage() {
                 />
               </div>
 
-              <div>
-                <Label htmlFor="notes">Ghi chú</Label>
-                <Textarea
-                  id="notes"
-                  defaultValue={formData.notes}
-                  onChange={(e) => updateFormField("notes", e.target.value)}
-                  onBlur={syncFormData}
-                  placeholder="Ghi chú về khách hàng..."
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="notes">Ghi chú</Label>
+                  <Textarea
+                    id="notes"
+                    defaultValue={formData.notes}
+                    onChange={(e) => updateFormField("notes", e.target.value)}
+                    onBlur={syncFormData}
+                    placeholder="Ghi chú về khách hàng..."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="tag">Thẻ tag</Label>
+                  <Select
+                    value={formData.tag_id || undefined}
+                    onValueChange={(value: string) => {
+                      updateFormField("tag_id", value || null)
+                      syncFormData()
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn thẻ tag" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Không có</SelectItem>
+                      {tags.map((tag) => (
+                        <SelectItem key={tag.id} value={tag.id}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: tag.color }}
+                            />
+                            {tag.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
@@ -871,6 +906,7 @@ export default function CustomersPage() {
                       <TableHead>Số điện thoại</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Giới tính</TableHead>
+                      <TableHead>Thẻ tag</TableHead>
                       <TableHead>Trạng thái</TableHead>
                       <TableHead>Ngày tạo</TableHead>
                       <TableHead>Thao tác</TableHead>
@@ -884,6 +920,15 @@ export default function CustomersPage() {
                         <TableCell>{customer.email || "Chưa có"}</TableCell>
                         <TableCell>
                           {customer.gender === "male" ? "Nam" : customer.gender === "female" ? "Nữ" : "Chưa có"}
+                        </TableCell>
+                        <TableCell>
+                          {customer.tag ? (
+                            <Badge style={{ backgroundColor: customer.tag.color, color: "#fff" }}>
+                              {customer.tag.name}
+                            </Badge>
+                          ) : (
+                            "Không có"
+                          )}
                         </TableCell>
                         <TableCell>{getStatusBadge(customer.status)}</TableCell>
                         <TableCell>{formatDate(customer.created_at)}</TableCell>
@@ -1150,6 +1195,37 @@ export default function CustomersPage() {
                 onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="Ghi chú về khách hàng..."
               />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="tag">Thẻ tag</Label>
+                <Select
+                  value={formData.tag_id || undefined}
+                  onValueChange={(value: string) => {
+                    updateFormField("tag_id", value || null)
+                    syncFormData()
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn thẻ tag" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Không có</SelectItem>
+                    {tags.map((tag) => (
+                      <SelectItem key={tag.id} value={tag.id}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: tag.color }}
+                          />
+                          {tag.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">

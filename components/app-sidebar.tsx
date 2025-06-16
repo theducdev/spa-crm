@@ -1,6 +1,6 @@
 "use client"
 
-import { Users, FileText, BarChart3, Camera, MessageCircle, Home, Settings, Package, Calendar, ClipboardCheck, Box, Heart, Image } from "lucide-react"
+import { Users, FileText, BarChart3, Camera, MessageCircle, Home, Settings, Package, Calendar, ClipboardCheck, Box, Heart, Image, Tag } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -27,6 +27,11 @@ const menuItems = [
     title: "Khách hàng",
     url: "/customers",
     icon: Users,
+  },
+  {
+    title: "Thẻ tag",
+    url: "/customer-tags",
+    icon: Tag,
   },
   {
     title: "Liệu trình",

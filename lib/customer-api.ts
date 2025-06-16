@@ -12,6 +12,12 @@ export type Customer = {
   face_image_path: string | null
   notes: string | null
   status: "active" | "inactive" | "pending"
+  tag_id: string | null
+  tag?: {
+    id: string
+    name: string
+    color: string
+  }
   created_at: string
   updated_at: string
 }
@@ -23,7 +29,12 @@ export type CustomerFilters = {
 
 // Lấy danh sách khách hàng với bộ lọc
 export async function getCustomers(filters: CustomerFilters = {}): Promise<Customer[]> {
-  let query = supabase.from("customers").select("*")
+  let query = supabase
+    .from("customers")
+    .select(`
+      *,
+      tag:customer_tags(id, name, color)
+    `)
 
   // Lọc theo trạng thái
   if (filters.status && filters.status !== "all") {
@@ -51,7 +62,14 @@ export async function getCustomers(filters: CustomerFilters = {}): Promise<Custo
 
 // Lấy thông tin chi tiết của một khách hàng
 export async function getCustomer(id: string): Promise<Customer> {
-  const { data, error } = await supabase.from("customers").select("*").eq("id", id).single()
+  const { data, error } = await supabase
+    .from("customers")
+    .select(`
+      *,
+      tag:customer_tags(id, name, color)
+    `)
+    .eq("id", id)
+    .single()
 
   if (error) {
     console.error("Error fetching customer:", error)
@@ -75,11 +93,46 @@ export async function createCustomer(customerData: Partial<Customer>): Promise<C
 
 // Cập nhật thông tin khách hàng
 export async function updateCustomer(id: string, customerData: Partial<Customer>): Promise<Customer> {
-  const { data, error } = await supabase.from("customers").update(customerData).eq("id", id).select().single()
+  // Kiểm tra id
+  if (!id) {
+    throw new Error("ID khách hàng không hợp lệ")
+  }
+
+  // Loại bỏ các trường undefined và null không cần thiết
+  const cleanedData = Object.entries(customerData).reduce((acc, [key, value]) => {
+    // Chỉ giữ lại các trường có giá trị
+    if (value !== undefined && value !== null) {
+      acc[key] = value
+    }
+    return acc
+  }, {} as Record<string, any>)
+
+  // Kiểm tra dữ liệu trước khi cập nhật
+  if (Object.keys(cleanedData).length === 0) {
+    throw new Error("Không có dữ liệu để cập nhật")
+  }
+
+  const { data, error } = await supabase
+    .from("customers")
+    .update(cleanedData)
+    .eq("id", id)
+    .select(`
+      *,
+      tag:customer_tags(id, name, color)
+    `)
+    .single()
 
   if (error) {
-    console.error("Error updating customer:", error)
-    throw new Error("Không thể cập nhật thông tin khách hàng")
+    console.error("Error updating customer:", {
+      error,
+      customerId: id,
+      updateData: cleanedData
+    })
+    throw new Error(error.message || "Không thể cập nhật thông tin khách hàng")
+  }
+
+  if (!data) {
+    throw new Error("Không tìm thấy khách hàng sau khi cập nhật")
   }
 
   return data as Customer

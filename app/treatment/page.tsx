@@ -26,12 +26,14 @@ import type { Treatment, TreatmentSession } from "@/lib/supabase"
 import { TreatmentProgress } from "@/components/treatment-progress"
 import { getProducts, type Product } from "@/lib/product-api"
 import { maskPhoneNumber } from "@/lib/utils"
+import { useSearchParams } from "next/navigation"
 
 const USAGE_TIMES = [
   { id: "morning", label: "Sáng" },
   { id: "noon", label: "Trưa" },
   { id: "afternoon", label: "Chiều" },
   { id: "evening", label: "Tối" },
+  { id: "alternate", label: "Cách ngày" },
 ]
 
 // Helper function to convert old format to new format
@@ -95,11 +97,21 @@ export default function TreatmentPage() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
 
+  const searchParams = useSearchParams()
+  const treatmentId = searchParams.get("id")
+
   // Load treatments on component mount
   useEffect(() => {
     loadTreatments()
     loadProducts()
   }, [])
+
+  // Load selected treatment when ID changes
+  useEffect(() => {
+    if (treatmentId) {
+      loadTreatmentData(treatmentId, true)
+    }
+  }, [treatmentId])
 
   // Update form data when session changes
   useEffect(() => {
@@ -121,8 +133,15 @@ export default function TreatmentPage() {
       setInitialLoading(true)
       const data = await getTreatments()
       setTreatments(data)
-      if (data.length > 0) {
-        // Load first treatment data immediately
+      if (treatmentId) {
+        // Load selected treatment data
+        await loadTreatmentData(treatmentId, false)
+        const selected = data.find(t => t.id === treatmentId)
+        if (selected) {
+          setSelectedTreatment(selected)
+        }
+      } else if (data.length > 0) {
+        // Load first treatment data if no ID provided
         await loadTreatmentData(data[0].id, false)
         setSelectedTreatment(data[0])
       }
