@@ -29,7 +29,6 @@ import {
   deleteCustomerFaceImage,
   deleteCustomer,
   type Customer,
-  type CustomerFilters,
 } from "@/lib/customer-api"
 import { getTreatmentPackages, type TreatmentPackage } from "@/lib/treatment-package-api"
 import { createTreatment } from "@/lib/treatment-api"
@@ -60,6 +59,12 @@ interface CustomerFormData {
   tag_id: string | null
 }
 
+interface CustomerFilters {
+  search: string
+  status: "all" | "active" | "inactive" | "pending"
+  tag_id: string | null
+}
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,6 +83,7 @@ export default function CustomersPage() {
   const [filters, setFilters] = useState<CustomerFilters>({
     search: "",
     status: "all",
+    tag_id: null
   })
 
   // Search state
@@ -221,6 +227,10 @@ export default function CustomersPage() {
 
   const handleStatusFilter = useCallback((status: "all" | "active" | "inactive" | "pending") => {
     setFilters((prev) => ({ ...prev, status }))
+  }, [])
+
+  const handleTagFilter = useCallback((tag_id: string | null) => {
+    setFilters((prev) => ({ ...prev, tag_id }))
   }, [])
 
   // Thêm vào phần function declarations
@@ -832,6 +842,37 @@ export default function CustomersPage() {
                 <SelectItem value="active">Đang hoạt động</SelectItem>
                 <SelectItem value="pending">Chờ xử lý</SelectItem>
                 <SelectItem value="inactive">Không hoạt động</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filters.tag_id || "all"} onValueChange={(value) => handleTagFilter(value === "all" ? null : value)}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Thẻ tag">
+                  {filters.tag_id ? (
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: tags.find(t => t.id === filters.tag_id)?.color }}
+                      />
+                      {tags.find(t => t.id === filters.tag_id)?.name}
+                    </div>
+                  ) : (
+                    "Tất cả thẻ"
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả thẻ</SelectItem>
+                {tags.map((tag) => (
+                  <SelectItem key={tag.id} value={tag.id}>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: tag.color }}
+                      />
+                      {tag.name}
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

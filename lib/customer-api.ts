@@ -25,6 +25,7 @@ export type Customer = {
 export type CustomerFilters = {
   search?: string
   status?: string
+  tag_id?: string | null
 }
 
 // Lấy danh sách khách hàng với bộ lọc
@@ -39,6 +40,11 @@ export async function getCustomers(filters: CustomerFilters = {}): Promise<Custo
   // Lọc theo trạng thái
   if (filters.status && filters.status !== "all") {
     query = query.eq("status", filters.status)
+  }
+
+  // Lọc theo tag
+  if (filters.tag_id) {
+    query = query.eq("tag_id", filters.tag_id)
   }
 
   // Tìm kiếm theo tên hoặc số điện thoại
