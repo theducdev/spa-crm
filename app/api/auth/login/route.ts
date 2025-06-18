@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { comparePasswords, createToken } from '@/lib/auth-utils';
 import { createClient } from '@/app/lib/supabase';
+import { isWithinWorkingHours } from '@/lib/working-hours';
 
 export async function POST(request: Request) {
   try {
@@ -56,6 +57,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Tên đăng nhập hoặc mật khẩu không chính xác' },
         { status: 401 }
+      );
+    }
+
+    // Kiểm tra giờ làm việc cho nhân viên
+    if (user.role === 'staff' && !isWithinWorkingHours()) {
+      console.log('Staff login attempt outside working hours');
+      return NextResponse.json(
+        { error: '✨ Quá giờ làm việc rồi, xin hãy nghỉ ngơi! 🌙' },
+        { status: 403 }
       );
     }
 
