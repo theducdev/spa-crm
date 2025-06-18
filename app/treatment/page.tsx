@@ -22,6 +22,7 @@ import {
   deleteTreatmentImage,
   canCreateNewSession,
 } from "@/lib/treatment-api"
+import { createAppointment } from "@/lib/appointment-api"
 import type { Treatment, TreatmentSession } from "@/lib/supabase"
 import { TreatmentProgress } from "@/components/treatment-progress"
 import { getProducts, type Product } from "@/lib/product-api"
@@ -262,6 +263,17 @@ function TreatmentPageContent() {
         ...formattedData
       })
 
+      // Tự động tạo lịch hẹn nếu có next_appointment
+      if (sessionData.next_appointment && selectedTreatment.customer?.id) {
+        await createAppointment({
+          customer_id: selectedTreatment.customer.id,
+          appointment_date: sessionData.next_appointment,
+          appointment_time: "09:00", // Mặc định 9:00 sáng
+          status: "pending",
+          notes: `Lịch hẹn tự động được tạo từ buổi điều trị ${currentSession.session_number}/${selectedTreatment.total_sessions} - ${selectedTreatment.treatment_name}`
+        })
+      }
+
       // Parse products for display
       const productsUsed = JSON.parse(sessionData.products_used || '[]');
       const productsDisplay = productsUsed.map((item: { product: string, usage_times: string[] }) => {
@@ -275,7 +287,7 @@ function TreatmentPageContent() {
       const message = [
         `Đã lưu thông tin buổi điều trị ${currentSession.session_number}/${selectedTreatment.total_sessions} cho khách hàng ${selectedTreatment.customer?.name || 'N/A'}`,
         productsDisplay && `\nSản phẩm đã sử dụng:\n${productsDisplay}`,
-        sessionData.next_appointment && `\nLịch hẹn tiếp theo: ${sessionData.next_appointment}`
+        sessionData.next_appointment && `\nLịch hẹn tiếp theo: ${sessionData.next_appointment} (Đã tự động tạo lịch hẹn)`
       ].filter(Boolean).join('\n');
 
       // Hiển thị dialog thành công
