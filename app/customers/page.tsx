@@ -904,6 +904,13 @@ export default function CustomersPage() {
                         <h3 className="font-medium truncate">{customer.name}</h3>
                         <p className="text-sm text-muted-foreground">{maskPhoneNumber(customer.phone)}</p>
                         <p className="text-sm text-muted-foreground truncate">{customer.email || "Chưa có email"}</p>
+                        {customer.tag ? (
+                          <Badge className="mt-2" style={{ backgroundColor: customer.tag.color, color: "#fff" }}>
+                            {customer.tag.name}
+                          </Badge>
+                        ) : (
+                          <Badge className="mt-2" variant="outline">Không có tag</Badge>
+                        )}
                       </div>
                       <div className="flex flex-col items-end gap-2 shrink-0">{getStatusBadge(customer.status)}</div>
                     </div>
