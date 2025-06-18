@@ -1,8 +1,10 @@
 "use client"
 
-import { Users, FileText, BarChart3, Camera, MessageCircle, Home, Settings, Package, Calendar, ClipboardCheck, Box, Heart, Image, Tag, Clock } from "lucide-react"
+import { Users, FileText, BarChart3, Camera, MessageCircle, Home, Settings, Package, Calendar, ClipboardCheck, Box, Heart, Image, Tag, Clock, LogOut } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { getLoginStatus } from "@/app/actions/auth"
 
 import {
   Sidebar,
@@ -82,6 +84,34 @@ const menuItems = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      const status = await getLoginStatus()
+      setIsLoggedIn(status)
+    }
+
+    checkLoginStatus()
+  }, [pathname])
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      })
+
+      if (response.ok) {
+        setIsLoggedIn(false)
+        router.push('/login')
+      } else {
+        console.error('Logout failed')
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
 
   return (
     <Sidebar className="border-r">
@@ -125,6 +155,14 @@ export function AppSidebar() {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {isLoggedIn && (
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={handleLogout}>
+                <LogOut />
+                <span>Đăng xuất</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
