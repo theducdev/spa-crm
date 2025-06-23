@@ -26,6 +26,7 @@ import {
 import { cn } from "@/lib/utils"
 import { Textarea } from "@/components/ui/textarea"
 import { useRouter } from "next/navigation"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 export default function TreatmentsPage() {
   const { toast } = useToast()
@@ -41,6 +42,7 @@ export default function TreatmentsPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null)
   const [treatmentSearchValue, setTreatmentSearchValue] = useState("")
+  const [showCustomerInfoDialog, setShowCustomerInfoDialog] = useState(false)
 
   // Form data for new/edit treatment
   const [formData, setFormData] = useState({
@@ -252,6 +254,11 @@ export default function TreatmentsPage() {
     router.push(`/treatment?id=${treatmentId}`)
   }
 
+  const handleCustomerClick = (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setShowCustomerInfoDialog(true)
+  }
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -296,7 +303,7 @@ export default function TreatmentsPage() {
                         className={`p-4 cursor-pointer hover:bg-accent ${
                           selectedCustomer?.id === customer.id ? "bg-accent" : ""
                         }`}
-                        onClick={() => setSelectedCustomer(customer)}
+                        onClick={() => handleCustomerClick(customer)}
                       >
                         <div className="font-medium">{customer.name}</div>
                         <div className="text-sm text-muted-foreground">
@@ -605,6 +612,133 @@ export default function TreatmentsPage() {
               Xóa liệu trình
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Info Dialog */}
+      <Dialog open={showCustomerInfoDialog} onOpenChange={setShowCustomerInfoDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
+          <DialogHeader className="mb-4 pr-6">
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" aria-hidden="true" />
+              <span>Thông tin khách hàng</span>
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Chi tiết thông tin và liệu trình của khách hàng
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            {selectedCustomer && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="customer-name">Tên khách hàng</Label>
+                    <div id="customer-name" className="font-medium">{selectedCustomer.name}</div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customer-phone">Số điện thoại</Label>
+                    <div id="customer-phone" className="text-sm">
+                      {maskPhoneNumber(selectedCustomer.phone)}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="treatment-count">Số liệu trình</Label>
+                    <div id="treatment-count" className="text-sm">
+                      {treatments.length} liệu trình
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <h3 className="font-medium mb-4" id="treatment-list-title">Danh sách liệu trình</h3>
+                  {treatments.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground" role="status">
+                      Khách hàng chưa có liệu trình nào
+                    </div>
+                  ) : (
+                    <div role="region" aria-labelledby="treatment-list-title" className="overflow-x-auto -mx-4 md:mx-0">
+                      <div className="min-w-[600px] md:w-full p-4 md:p-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[35%]">Tên liệu trình</TableHead>
+                              <TableHead className="w-[20%]">Tiến độ</TableHead>
+                              <TableHead className="w-[20%]">Ngày bắt đầu</TableHead>
+                              <TableHead className="w-[25%]">Trạng thái</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {treatments.map((treatment) => (
+                              <TableRow key={treatment.id}>
+                                <TableCell className="font-medium">
+                                  <button
+                                    onClick={() => {
+                                      handleTreatmentClick(treatment.id)
+                                      setShowCustomerInfoDialog(false)
+                                    }}
+                                    className="text-blue-600 hover:text-blue-800 hover:underline text-left"
+                                    aria-label={`Xem chi tiết liệu trình ${treatment.treatment_name}`}
+                                  >
+                                    {treatment.treatment_name}
+                                  </button>
+                                </TableCell>
+                                <TableCell>
+                                  {treatment.current_session}/{treatment.total_sessions} buổi
+                                </TableCell>
+                                <TableCell>{treatment.start_date}</TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Badge variant={treatment.status === "active" ? "default" : "secondary"}>
+                                      {treatment.status === "active" ? "Đang điều trị" : "Hoàn thành"}
+                                    </Badge>
+                                    <div className="flex items-center gap-1 ml-auto">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleEditTreatment(treatment)
+                                        }}
+                                        aria-label={`Chỉnh sửa liệu trình ${treatment.treatment_name}`}
+                                      >
+                                        <Edit className="h-4 w-4" aria-hidden="true" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteTreatment(treatment)
+                                        }}
+                                        aria-label={`Xóa liệu trình ${treatment.treatment_name}`}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t pt-6">
+                  <Button 
+                    className="w-full" 
+                    onClick={() => setShowNewTreatmentDialog(true)}
+                    aria-label="Thêm liệu trình mới cho khách hàng"
+                  >
+                    <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
+                    Thêm liệu trình mới
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
