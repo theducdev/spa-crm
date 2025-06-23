@@ -95,14 +95,16 @@ export async function uploadTreatmentImage(file: File, sessionId: string, imageT
       throw new Error("Không có file được chọn")
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      // 5MB limit
-      throw new Error("File quá lớn. Vui lòng chọn file nhỏ hơn 5MB")
+    if (file.size > 50 * 1024 * 1024) {
+      // 50MB limit cho cả ảnh và video
+      throw new Error("File quá lớn. Vui lòng chọn file nhỏ hơn 50MB")
     }
 
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
-    if (!allowedTypes.includes(file.type)) {
-      throw new Error("Định dạng file không được hỗ trợ. Vui lòng chọn file JPG, PNG hoặc WebP")
+    const allowedImageTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
+    const allowedVideoTypes = ["video/mp4", "video/x-m4v", "video/quicktime"]
+    
+    if (!allowedImageTypes.includes(file.type) && !allowedVideoTypes.includes(file.type)) {
+      throw new Error("Định dạng file không được hỗ trợ. Vui lòng chọn file JPG, PNG, WebP hoặc MP4")
     }
 
     const fileExt = file.name.split(".").pop()?.toLowerCase()
@@ -111,12 +113,13 @@ export async function uploadTreatmentImage(file: File, sessionId: string, imageT
 
     console.log("Uploading file:", { fileName, filePath, fileSize: file.size, fileType: file.type })
 
-    // Upload file lên storage
+    // Upload file lên storage với content type phù hợp
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("treatment-images")
       .upload(filePath, file, {
         cacheControl: "3600",
         upsert: false,
+        contentType: file.type // Thêm content type để đảm bảo file được serve đúng
       })
 
     if (uploadError) {
@@ -130,12 +133,12 @@ export async function uploadTreatmentImage(file: File, sessionId: string, imageT
     const { data: urlData } = supabase.storage.from("treatment-images").getPublicUrl(filePath)
 
     if (!urlData?.publicUrl) {
-      throw new Error("Không thể tạo URL công khai cho ảnh")
+      throw new Error("Không thể tạo URL công khai cho file")
     }
 
     console.log("Public URL:", urlData.publicUrl)
 
-    // Lưu thông tin ảnh vào database
+    // Lưu thông tin file vào database
     const { data, error } = await supabase
       .from("treatment_images")
       .insert({
@@ -143,6 +146,7 @@ export async function uploadTreatmentImage(file: File, sessionId: string, imageT
         image_type: imageType,
         image_url: urlData.publicUrl,
         storage_path: filePath,
+        file_type: allowedImageTypes.includes(file.type) ? "image" : "video"
       })
       .select()
       .single()
@@ -151,7 +155,7 @@ export async function uploadTreatmentImage(file: File, sessionId: string, imageT
       console.error("Database insert error:", error)
       // Nếu lưu database thất bại, xóa file đã upload
       await supabase.storage.from("treatment-images").remove([filePath])
-      throw new Error(`Lỗi lưu thông tin ảnh: ${error.message}`)
+      throw new Error(`Lỗi lưu thông tin file: ${error.message}`)
     }
 
     console.log("Database insert successful:", data)

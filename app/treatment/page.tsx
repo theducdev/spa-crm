@@ -554,110 +554,134 @@ function TreatmentPageContent() {
 
       {currentSession && !treatmentLoading && (
         <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-6">
-          {/* Images Upload */}
+          {/* Images/Videos Upload */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
-                Ảnh điều trị
+                Ảnh/Video điều trị
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 sm:space-y-6">
-              {/* Before Image */}
+              {/* Before Images/Videos */}
               <div>
-                <Label className="text-sm font-medium mb-2 block">Ảnh trước điều trị</Label>
+                <Label className="text-sm font-medium mb-2 block">Ảnh/Video trước điều trị</Label>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 sm:p-4">
-                  {beforeImage ? (
-                    <div className="relative">
-                      <img
-                        src={beforeImage.image_url || "/placeholder.svg"}
-                        alt="Before treatment"
-                        className="w-full aspect-square object-cover rounded"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="absolute top-2 right-2"
-                        onClick={() => handleDeleteImage(beforeImage.id)}
-                      >
-                        <X className="h-4 w-4" />
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                    {currentSession?.treatment_images
+                      ?.filter(img => img.image_type === "before")
+                      .map((image) => (
+                        <div key={image.id} className="relative aspect-square">
+                          {image.image_url?.toLowerCase().endsWith('.mp4') ? (
+                            <video
+                              src={image.image_url}
+                              className="w-full h-full object-cover rounded"
+                              controls
+                            />
+                          ) : (
+                            <img
+                              src={image.image_url || "/placeholder.svg"}
+                              alt="Before treatment"
+                              className="w-full h-full object-cover rounded"
+                            />
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="absolute top-2 right-2"
+                            onClick={() => handleDeleteImage(image.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                    ))}
+                  </div>
+                  <div className="text-center py-4">
+                    {uploading.before ? (
+                      <Loader2 className="h-8 w-8 sm:h-12 sm:w-12 mx-auto animate-spin mb-4" />
+                    ) : (
+                      <Upload className="h-8 w-8 sm:h-12 sm:w-12 mx-auto text-gray-400 mb-2 sm:mb-4" />
+                    )}
+                    <p className="text-xs sm:text-sm text-gray-600 mb-2">Tải lên ảnh hoặc video trước điều trị</p>
+                    <input
+                      type="file"
+                      accept="image/*,video/mp4,video/x-m4v,video/*"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || [])
+                        files.forEach(file => handleImageUpload("before", file))
+                      }}
+                      className="hidden"
+                      id="before-upload"
+                      disabled={uploading.before}
+                    />
+                    <label htmlFor="before-upload">
+                      <Button variant="outline" asChild size="sm" disabled={uploading.before}>
+                        <span>Chọn ảnh/video</span>
                       </Button>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 sm:py-8">
-                      {uploading.before ? (
-                        <Loader2 className="h-8 w-8 sm:h-12 sm:w-12 mx-auto animate-spin mb-4" />
-                      ) : (
-                        <Upload className="h-8 w-8 sm:h-12 sm:w-12 mx-auto text-gray-400 mb-2 sm:mb-4" />
-                      )}
-                      <p className="text-xs sm:text-sm text-gray-600 mb-2">Tải lên ảnh trước điều trị</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (file) handleImageUpload("before", file)
-                        }}
-                        className="hidden"
-                        id="before-upload"
-                        disabled={uploading.before}
-                      />
-                      <label htmlFor="before-upload">
-                        <Button variant="outline" asChild size="sm" disabled={uploading.before}>
-                          <span>Chọn ảnh</span>
-                        </Button>
-                      </label>
-                    </div>
-                  )}
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              {/* After Image */}
+              {/* After Images/Videos */}
               <div>
-                <Label className="text-sm font-medium mb-2 block">Ảnh sau điều trị</Label>
+                <Label className="text-sm font-medium mb-2 block">Ảnh/Video sau điều trị</Label>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 sm:p-4">
-                  {afterImage ? (
-                    <div className="relative">
-                      <img
-                        src={afterImage.image_url || "/placeholder.svg"}
-                        alt="After treatment"
-                        className="w-full aspect-square object-cover rounded"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="absolute top-2 right-2"
-                        onClick={() => handleDeleteImage(afterImage.id)}
-                      >
-                        <X className="h-4 w-4" />
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                    {currentSession?.treatment_images
+                      ?.filter(img => img.image_type === "after")
+                      .map((image) => (
+                        <div key={image.id} className="relative aspect-square">
+                          {image.image_url?.toLowerCase().endsWith('.mp4') ? (
+                            <video
+                              src={image.image_url}
+                              className="w-full h-full object-cover rounded"
+                              controls
+                            />
+                          ) : (
+                            <img
+                              src={image.image_url || "/placeholder.svg"}
+                              alt="After treatment"
+                              className="w-full h-full object-cover rounded"
+                            />
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="absolute top-2 right-2"
+                            onClick={() => handleDeleteImage(image.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                    ))}
+                  </div>
+                  <div className="text-center py-4">
+                    {uploading.after ? (
+                      <Loader2 className="h-8 w-8 sm:h-12 sm:w-12 mx-auto animate-spin mb-4" />
+                    ) : (
+                      <Upload className="h-8 w-8 sm:h-12 sm:w-12 mx-auto text-gray-400 mb-2 sm:mb-4" />
+                    )}
+                    <p className="text-xs sm:text-sm text-gray-600 mb-2">Tải lên ảnh hoặc video sau điều trị</p>
+                    <input
+                      type="file"
+                      accept="image/*,video/mp4,video/x-m4v,video/*"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || [])
+                        files.forEach(file => handleImageUpload("after", file))
+                      }}
+                      className="hidden"
+                      id="after-upload"
+                      disabled={uploading.after}
+                    />
+                    <label htmlFor="after-upload">
+                      <Button variant="outline" asChild size="sm" disabled={uploading.after}>
+                        <span>Chọn ảnh/video</span>
                       </Button>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 sm:py-8">
-                      {uploading.after ? (
-                        <Loader2 className="h-8 w-8 sm:h-12 sm:w-12 mx-auto animate-spin mb-4" />
-                      ) : (
-                        <Upload className="h-8 w-8 sm:h-12 sm:w-12 mx-auto text-gray-400 mb-2 sm:mb-4" />
-                      )}
-                      <p className="text-xs sm:text-sm text-gray-600 mb-2">Tải lên ảnh sau điều trị</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (file) handleImageUpload("after", file)
-                        }}
-                        className="hidden"
-                        id="after-upload"
-                        disabled={uploading.after}
-                      />
-                      <label htmlFor="after-upload">
-                        <Button variant="outline" asChild size="sm" disabled={uploading.after}>
-                          <span>Chọn ảnh</span>
-                        </Button>
-                      </label>
-                    </div>
-                  )}
+                    </label>
+                  </div>
                 </div>
               </div>
             </CardContent>

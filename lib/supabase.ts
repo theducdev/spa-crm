@@ -55,5 +55,6 @@ export interface TreatmentImage {
   image_type: "before" | "after"
   image_url: string
   storage_path: string
+  file_type: "image" | "video"
   created_at: string
 }
