@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { getCustomerTags, type CustomerTag } from "@/lib/customer-tag-api"
+import { SearchableCombobox } from "@/components/ui/searchable-combobox"
 
 interface CustomerFormData {
   name: string
@@ -603,21 +604,16 @@ export default function CustomersPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="treatment_package">Gói điều trị</Label>
-                      <Select
+                      <SearchableCombobox
+                        options={treatmentPackages.map(pkg => ({
+                          value: pkg.id,
+                          label: pkg.name
+                        }))}
                         value={selectedTreatmentPackage}
-                        onValueChange={setSelectedTreatmentPackage}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Chọn gói điều trị" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {treatmentPackages.map((pkg) => (
-                            <SelectItem key={pkg.id} value={pkg.id}>
-                              {pkg.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={setSelectedTreatmentPackage}
+                        placeholder="Chọn gói điều trị"
+                        className="w-full"
+                      />
                     </div>
                     <div>
                       <Label htmlFor="startDate">Ngày bắt đầu</Label>
