@@ -9,9 +9,9 @@ export function isWithinWorkingHours(): boolean {
   // Chuyển đổi thời gian hiện tại sang số phút từ 00:00
   const currentTimeInMinutes = hours * 60 + minutes;
   
-  // Giờ làm việc: 7:00 - 17:30
+  // Giờ làm việc: 7:00 - 21:00
   const workStartInMinutes = 7 * 60; // 7:00
-  const workEndInMinutes = 17 * 60 + 30; // 17:30
+  const workEndInMinutes = 21 * 60; // 21:00
   
   return currentTimeInMinutes >= workStartInMinutes && currentTimeInMinutes <= workEndInMinutes;
 } 
