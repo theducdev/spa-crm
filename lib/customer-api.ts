@@ -13,6 +13,7 @@ export type Customer = {
   notes: string | null
   status: "active" | "inactive" | "pending"
   tag_id: string | null
+  debt: number
   tag?: {
     id: string
     name: string

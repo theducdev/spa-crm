@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, memo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -58,6 +58,7 @@ interface CustomerFormData {
   notes: string
   status: "active" | "inactive" | "pending"
   tag_id: string | null
+  debt: number
 }
 
 interface CustomerFilters {
@@ -65,6 +66,46 @@ interface CustomerFilters {
   status: "all" | "active" | "inactive" | "pending"
   tag_id: string | null
 }
+
+// Tách thành component riêng để tránh re-render không cần thiết
+const DebtInput = memo(({ 
+  value, 
+  onChange 
+}: { 
+  value: number
+  onChange: (value: number) => void 
+}) => {
+  const [localValue, setLocalValue] = useState(() => 
+    value ? new Intl.NumberFormat("vi-VN").format(value) : ""
+  )
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/[^0-9]/g, '')
+    const formattedValue = rawValue ? new Intl.NumberFormat("vi-VN").format(parseInt(rawValue)) : ""
+    setLocalValue(formattedValue)
+    onChange(rawValue ? parseInt(rawValue) : 0)
+  }
+
+  // Chỉ cập nhật local value khi prop value thay đổi và khác với giá trị đã parse
+  useEffect(() => {
+    const currentNumericValue = parseInt(localValue.replace(/[^0-9]/g, '')) || 0
+    if (value !== currentNumericValue) {
+      setLocalValue(value ? new Intl.NumberFormat("vi-VN").format(value) : "")
+    }
+  }, [value])
+
+  return (
+    <Input
+      type="text"
+      inputMode="numeric"
+      value={localValue}
+      onChange={handleChange}
+      placeholder="0"
+      className="text-right"
+    />
+  )
+})
+DebtInput.displayName = "DebtInput"
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -104,6 +145,7 @@ export default function CustomersPage() {
     notes: "",
     status: "active",
     tag_id: null,
+    debt: 0,
   })
 
   // Add formRef to store temporary form data
@@ -117,6 +159,7 @@ export default function CustomersPage() {
     notes: "",
     status: "active",
     tag_id: null,
+    debt: 0,
   })
 
   // Thêm state riêng cho gói điều trị
@@ -260,6 +303,7 @@ export default function CustomersPage() {
       notes: "",
       status: "active",
       tag_id: null,
+      debt: 0,
     })
     formRef.current = {
       name: "",
@@ -271,6 +315,7 @@ export default function CustomersPage() {
       notes: "",
       status: "active",
       tag_id: null,
+      debt: 0,
     }
     setSelectedTreatmentPackage("")
   }
@@ -298,6 +343,7 @@ export default function CustomersPage() {
         notes: formData.notes || null,
         status: formData.status,
         tag_id: formData.tag_id,
+        debt: formData.debt || 0,
       }
       const newCustomer = await createCustomer(customerData)
 
@@ -357,6 +403,7 @@ export default function CustomersPage() {
         notes: formData.notes || null,
         status: formData.status,
         tag_id: formData.tag_id,
+        debt: formData.debt || 0,
       }
       await updateCustomer(selectedCustomer.id, customerData)
 
@@ -389,6 +436,7 @@ export default function CustomersPage() {
       notes: customer.notes || "",
       status: customer.status,
       tag_id: customer.tag_id,
+      debt: customer.debt || 0,
     })
     setIsViewingCustomer(true)
   }
@@ -405,6 +453,7 @@ export default function CustomersPage() {
       notes: customer.notes || "",
       status: customer.status,
       tag_id: customer.tag_id,
+      debt: customer.debt || 0,
     })
     setIsEditingCustomer(true)
   }
@@ -524,6 +573,38 @@ export default function CustomersPage() {
       currency: "VND" 
     }).format(value)
   }
+
+  // Thêm hàm format số tiền khi nhập
+  const formatNumberInput = (value: string) => {
+    // Loại bỏ tất cả ký tự không phải số
+    const number = value.replace(/[^0-9]/g, '')
+    if (!number) return ''
+    return new Intl.NumberFormat("vi-VN").format(parseInt(number))
+  }
+
+  // Thêm state để hiển thị số tiền đã format
+  const [formattedDebt, setFormattedDebt] = useState("")
+
+  // Thêm useEffect để format số tiền khi formData.debt thay đổi
+  useEffect(() => {
+    setFormattedDebt(formData.debt ? new Intl.NumberFormat("vi-VN").format(formData.debt) : "")
+  }, [formData.debt])
+
+  // Thêm hàm xử lý thay đổi giá trị nợ với debounce
+  const handleDebtChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9]/g, '')
+    const numberValue = value ? parseInt(value) : 0
+    
+    // Cập nhật giá trị đã format ngay lập tức để UI mượt
+    setFormattedDebt(value ? new Intl.NumberFormat("vi-VN").format(parseInt(value)) : "")
+    
+    // Debounce cập nhật formData
+    const timer = setTimeout(() => {
+      setFormData(prev => ({ ...prev, debt: numberValue }))
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [])
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 pb-20 sm:pb-6">
@@ -951,6 +1032,7 @@ export default function CustomersPage() {
                       <TableHead>Email</TableHead>
                       <TableHead>Giới tính</TableHead>
                       <TableHead>Thẻ tag</TableHead>
+                      <TableHead>Nợ</TableHead>
                       <TableHead>Trạng thái</TableHead>
                       <TableHead>Ngày tạo</TableHead>
                       <TableHead>Thao tác</TableHead>
@@ -974,6 +1056,7 @@ export default function CustomersPage() {
                             "Không có"
                           )}
                         </TableCell>
+                        <TableCell>{formatCurrency(customer.debt || 0)}</TableCell>
                         <TableCell>{getStatusBadge(customer.status)}</TableCell>
                         <TableCell>{formatDate(customer.created_at)}</TableCell>
                         <TableCell>
@@ -1074,6 +1157,10 @@ export default function CustomersPage() {
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Ngày tạo</Label>
                   <p className="text-base">{formatDate(selectedCustomer.created_at)}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Nợ</Label>
+                  <p className="text-base">{formatCurrency(selectedCustomer.debt || 0)}</p>
                 </div>
               </div>
             </div>
@@ -1242,6 +1329,22 @@ export default function CustomersPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-debt">Nợ (VNĐ)</Label>
+                <Input
+                  id="edit-debt"
+                  type="text"
+                  inputMode="numeric"
+                  defaultValue={formData.debt.toLocaleString('vi-VN')}
+                  onBlur={(e) => {
+                    const value = parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0
+                    setFormData(prev => ({ ...prev, debt: value }))
+                    e.target.value = value.toLocaleString('vi-VN')
+                  }}
+                  placeholder="0"
+                  className="text-right"
+                />
+              </div>
               <div>
                 <Label htmlFor="tag">Thẻ tag</Label>
                 <Select
