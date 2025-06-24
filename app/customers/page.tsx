@@ -989,7 +989,12 @@ export default function CustomersPage() {
                           <Badge className="mt-2" variant="outline">Không có tag</Badge>
                         )}
                       </div>
-                      <div className="flex flex-col items-end gap-2 shrink-0">{getStatusBadge(customer.status)}</div>
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        {getStatusBadge(customer.status)}
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Nợ: {formatCurrency(customer.debt || 0)}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <Button
