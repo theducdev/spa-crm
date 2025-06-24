@@ -14,6 +14,7 @@ export interface Customer {
   gender?: string
   birth_date?: string
   address?: string
+  uid_zalo?: string
   created_at: string
   updated_at: string
 }
