@@ -35,7 +35,7 @@ interface AppointmentWithCustomer extends Appointment {
 interface AppointmentListProps {
   appointments: AppointmentWithCustomer[]
   onEdit: (id: string) => void
-  onDelete: (id: string) => void
+  onDelete?: (id: string) => void
 }
 
 export function AppointmentList({
@@ -65,6 +65,15 @@ export function AppointmentList({
     }
   }
 
+  const getRowClassName = (status: string) => {
+    switch (status) {
+      case "confirmed":
+        return "bg-green-100"
+      default:
+        return ""
+    }
+  }
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -81,7 +90,10 @@ export function AppointmentList({
         </TableHeader>
         <TableBody>
           {appointments.map((appointment) => (
-            <TableRow key={appointment.id}>
+            <TableRow 
+              key={appointment.id}
+              className={getRowClassName(appointment.status)}
+            >
               <TableCell>
                 {format(new Date(appointment.appointment_date), "dd/MM/yyyy", {
                   locale: vi,
@@ -105,13 +117,13 @@ export function AppointmentList({
                   >
                     Sửa
                   </Button>
-                  <Button
+                  {/* <Button
                     variant="destructive"
                     size="sm"
                     onClick={() => onDelete(appointment.id)}
                   >
                     Xóa
-                  </Button>
+                  </Button> */}
                 </div>
               </TableCell>
             </TableRow>

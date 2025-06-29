@@ -37,17 +37,6 @@ export default function AppointmentsPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Bạn có chắc chắn muốn xóa lịch hẹn này?")) {
-      try {
-        await deleteAppointment(id)
-        loadAppointments()
-      } catch (error) {
-        console.error("Error deleting appointment:", error)
-      }
-    }
-  }
-
   const handleEdit = (id: string) => {
     setSelectedAppointmentId(id)
     setDialogOpen(true)
@@ -71,7 +60,6 @@ export default function AppointmentsPage() {
       <AppointmentList
         appointments={appointments}
         onEdit={handleEdit}
-        onDelete={handleDelete}
       />
 
       <AppointmentDialog
