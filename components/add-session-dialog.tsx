@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { createNewTreatmentSession, upsertTreatmentSession } from "@/lib/treatment-api"
 import { getProducts, type Product } from "@/lib/product-api"
 import type { Treatment } from "@/lib/supabase"
+import { SearchableCombobox } from "@/components/ui/searchable-combobox"
 
 interface AddSessionDialogProps {
   treatment: Treatment
@@ -150,21 +151,21 @@ export function AddSessionDialog({ treatment, onSessionAdded, canAddSession }: A
 
           <div>
             <Label htmlFor="products_used">Sản phẩm dự kiến sử dụng</Label>
-            <Select
-              value={sessionData.products_used}
-              onValueChange={(value) => setSessionData((prev) => ({ ...prev, products_used: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Chọn sản phẩm sử dụng" />
-              </SelectTrigger>
-              <SelectContent>
-                {products.map((product) => (
-                  <SelectItem key={product.id} value={product.name}>
-                    {product.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableCombobox
+              options={products.map(product => ({
+                value: product.id,
+                label: product.name
+              }))}
+              value={sessionData.products_used || ""}
+              onChange={(value) => {
+                const selectedProduct = products.find(p => p.id === value);
+                setSessionData(prev => ({
+                  ...prev,
+                  products_used: selectedProduct ? selectedProduct.name : ""
+                }));
+              }}
+              placeholder="Chọn hoặc tìm kiếm sản phẩm..."
+            />
           </div>
 
           <div>
