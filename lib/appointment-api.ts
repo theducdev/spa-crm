@@ -7,6 +7,7 @@ export interface Appointment {
   appointment_time: string
   status: "pending" | "confirmed" | "cancelled"
   notes?: string
+  created_by: number
   created_at: string
   updated_at: string
 }
@@ -20,6 +21,10 @@ export async function getAppointments() {
       customers (
         id,
         name
+      ),
+      created_by_user:users!created_by (
+        id,
+        full_name
       )
     `)
     .order("appointment_date", { ascending: true })
@@ -62,7 +67,8 @@ export async function createAppointment(appointmentData: Partial<Appointment>) {
       appointment_date: appointmentData.appointment_date,
       appointment_time: appointmentData.appointment_time,
       status: appointmentData.status || "pending",
-      notes: appointmentData.notes
+      notes: appointmentData.notes,
+      created_by: appointmentData.created_by
     }])
     .select()
     .single()

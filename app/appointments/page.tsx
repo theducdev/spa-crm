@@ -13,6 +13,10 @@ interface AppointmentWithCustomer extends Appointment {
     name: string
     phone: string
   }
+  created_by_user?: {
+    id: number
+    full_name: string
+  }
 }
 
 export default function AppointmentsPage() {

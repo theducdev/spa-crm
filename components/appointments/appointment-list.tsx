@@ -26,6 +26,10 @@ interface AppointmentWithCustomer extends Appointment {
     id: string
     name: string
   }
+  created_by_user?: {
+    id: number
+    full_name: string
+  }
 }
 
 interface AppointmentListProps {
@@ -70,6 +74,7 @@ export function AppointmentList({
             <TableHead>Giờ</TableHead>
             <TableHead>Khách hàng</TableHead>
             <TableHead>Trạng thái</TableHead>
+            <TableHead>Nhân viên</TableHead>
             <TableHead>Ghi chú</TableHead>
             <TableHead>Thao tác</TableHead>
           </TableRow>
@@ -89,6 +94,7 @@ export function AppointmentList({
                   {getStatusText(appointment.status)}
                 </span>
               </TableCell>
+              <TableCell>{appointment.created_by_user?.full_name || "N/A"}</TableCell>
               <TableCell>{appointment.notes}</TableCell>
               <TableCell>
                 <div className="flex gap-2">

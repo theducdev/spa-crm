@@ -65,6 +65,7 @@ function TreatmentPageContent() {
   const [sessions, setSessions] = useState<TreatmentSession[]>([])
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0)
   const [products, setProducts] = useState<Product[]>([])
+  const [currentUser, setCurrentUser] = useState<{ id: number; username: string; role: string } | null>(null)
 
   // Separate loading states
   const [initialLoading, setInitialLoading] = useState(true)
@@ -109,6 +110,7 @@ function TreatmentPageContent() {
   useEffect(() => {
     loadTreatments()
     loadProducts()
+    loadCurrentUser()
   }, [])
 
   // Load selected treatment when ID changes
@@ -172,6 +174,18 @@ function TreatmentPageContent() {
         description: "Không thể tải danh sách sản phẩm",
         variant: "destructive",
       })
+    }
+  }
+
+  const loadCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/current-user');
+      const data = await response.json();
+      if (data.user) {
+        setCurrentUser(data.user);
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error);
     }
   }
 
@@ -246,7 +260,7 @@ function TreatmentPageContent() {
   )
 
   const handleSaveSession = async () => {
-    if (!selectedTreatment || !sessions[currentSessionIndex]) return
+    if (!selectedTreatment || !sessions[currentSessionIndex] || !currentUser) return
 
     setSaving(true)
     try {
@@ -273,7 +287,8 @@ function TreatmentPageContent() {
           appointment_date: sessionData.next_appointment,
           appointment_time: "09:00", // Mặc định 9:00 sáng
           status: "pending",
-          notes: `Lịch hẹn tự động được tạo từ buổi điều trị ${currentSession.session_number}/${selectedTreatment.total_sessions} - ${selectedTreatment.treatment_name}`
+          notes: `Lịch hẹn tự động được tạo từ buổi điều trị ${currentSession.session_number}/${selectedTreatment.total_sessions} - ${selectedTreatment.treatment_name}`,
+          created_by: currentUser.id
         })
       }
 

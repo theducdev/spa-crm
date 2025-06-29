@@ -63,6 +63,7 @@ export function AppointmentDialog({
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [searchValue, setSearchValue] = useState("")
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [currentUser, setCurrentUser] = useState<{ id: number } | null>(null)
 
   useEffect(() => {
     if (isEdit && open) {
@@ -72,6 +73,10 @@ export function AppointmentDialog({
 
   useEffect(() => {
     loadCustomers()
+  }, [])
+
+  useEffect(() => {
+    loadCurrentUser()
   }, [])
 
   const loadCustomers = async () => {
@@ -109,13 +114,31 @@ export function AppointmentDialog({
     }
   }
 
+  const loadCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/current-user')
+      const data = await response.json()
+      if (data.user) {
+        setCurrentUser({ id: data.user.id })
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       if (isEdit) {
         await updateAppointment(appointmentId!, formData)
       } else {
-        await createAppointment(formData)
+        if (!currentUser) {
+          throw new Error('Không thể tạo lịch hẹn: Chưa đăng nhập')
+        }
+        await createAppointment({
+          ...formData,
+          created_by: currentUser.id
+        })
       }
       onSuccess()
       onOpenChange(false)
