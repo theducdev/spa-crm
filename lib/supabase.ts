@@ -41,6 +41,7 @@ export interface TreatmentSession {
   session_number: number
   session_date: string
   products_used?: string
+  products_sold?: string
   skin_condition?: string
   reaction?: string
   next_appointment?: string

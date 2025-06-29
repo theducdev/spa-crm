@@ -82,6 +82,7 @@ function TreatmentPageContent() {
   const [sessionData, setSessionData] = useState({
     session_date: "",
     products_used: "", // Stored as JSON string: [{product: string, usage_times: string[]}]
+    products_sold: "", // Stored as JSON string: [{product: string, usage_times: string[]}]
     skin_condition: "",
     reaction: "",
     next_appointment: "",
@@ -127,6 +128,7 @@ function TreatmentPageContent() {
       setSessionData({
         session_date: session.session_date || "",
         products_used: convertProductsFormat(session.products_used || "[]"),
+        products_sold: convertProductsFormat(session.products_sold || "[]"),
         skin_condition: session.skin_condition || "",
         reaction: session.reaction || "",
         next_appointment: session.next_appointment || "",
@@ -270,7 +272,8 @@ function TreatmentPageContent() {
       const formattedData = {
         ...sessionData,
         next_appointment: sessionData.next_appointment || undefined, // Convert empty string to undefined
-        products_used: sessionData.products_used
+        products_used: sessionData.products_used,
+        products_sold: sessionData.products_sold
       }
 
       await upsertTreatmentSession({
@@ -294,7 +297,17 @@ function TreatmentPageContent() {
 
       // Parse products for display
       const productsUsed = JSON.parse(sessionData.products_used || '[]');
-      const productsDisplay = productsUsed.map((item: { product: string, usage_times: string[] }) => {
+      const productsSold = JSON.parse(sessionData.products_sold || '[]');
+      
+      const productsUsedDisplay = productsUsed.map((item: { product: string, usage_times: string[] }) => {
+        const times = item.usage_times
+          .map(timeId => USAGE_TIMES.find(t => t.id === timeId)?.label || '')
+          .filter(Boolean)
+          .join(', ');
+        return `${item.product}${times ? ` (${times})` : ''}`;
+      }).join('\n');
+
+      const productsSoldDisplay = productsSold.map((item: { product: string, usage_times: string[] }) => {
         const times = item.usage_times
           .map(timeId => USAGE_TIMES.find(t => t.id === timeId)?.label || '')
           .filter(Boolean)
@@ -304,7 +317,8 @@ function TreatmentPageContent() {
 
       const message = [
         `Đã lưu thông tin buổi điều trị ${currentSession.session_number}/${selectedTreatment.total_sessions} cho khách hàng ${selectedTreatment.customer?.name || 'N/A'}`,
-        productsDisplay && `\nSản phẩm đã sử dụng:\n${productsDisplay}`,
+        productsUsedDisplay && `\nSản phẩm đã sử dụng:\n${productsUsedDisplay}`,
+        productsSoldDisplay && `\nSản phẩm đã bán:\n${productsSoldDisplay}`,
         sessionData.next_appointment && `\nLịch hẹn tiếp theo: ${sessionData.next_appointment} (Đã tự động tạo lịch hẹn)`
       ].filter(Boolean).join('\n');
 
@@ -326,6 +340,13 @@ function TreatmentPageContent() {
               sessionNumber: currentSession.session_number,
               totalSessions: selectedTreatment.total_sessions,
               products: JSON.parse(sessionData.products_used || '[]')
+                .map((item: { product: string, usage_times: string[] }) => ({
+                  name: item.product,
+                  usageTimes: item.usage_times.map(timeId => 
+                    USAGE_TIMES.find(t => t.id === timeId)?.label || ''
+                  ).filter(Boolean)
+                })),
+              productsSold: JSON.parse(sessionData.products_sold || '[]')
                 .map((item: { product: string, usage_times: string[] }) => ({
                   name: item.product,
                   usageTimes: item.usage_times.map(timeId => 
@@ -405,6 +426,13 @@ function TreatmentPageContent() {
           sessionNumber: currentSession.session_number,
           totalSessions: selectedTreatment.total_sessions,
           products: JSON.parse(sessionData.products_used || '[]')
+            .map((item: { product: string, usage_times: string[] }) => ({
+              name: item.product,
+              usageTimes: item.usage_times.map(timeId => 
+                USAGE_TIMES.find(t => t.id === timeId)?.label || ''
+              ).filter(Boolean)
+            })),
+          productsSold: JSON.parse(sessionData.products_sold || '[]')
             .map((item: { product: string, usage_times: string[] }) => ({
               name: item.product,
               usageTimes: item.usage_times.map(timeId => 
@@ -848,7 +876,7 @@ function TreatmentPageContent() {
                             products.splice(index, 1);
                             setSessionData(prev => ({ ...prev, products_used: JSON.stringify(products) }));
                           }}
-                >
+                        >
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
@@ -915,11 +943,10 @@ function TreatmentPageContent() {
               </div>
 
               <div>
-                <Label htmlFor="skinCondition">Tình trạng da trước điều trị</Label>
+                <Label htmlFor="skin_condition">Tình trạng da</Label>
                 <Textarea
-                  id="skinCondition"
-                  placeholder="Mô tả tình trạng da..."
-                  rows={2}
+                  id="skin_condition"
+                  placeholder="Mô tả tình trạng da của khách hàng..."
                   value={sessionData.skin_condition}
                   onChange={(e) => setSessionData((prev) => ({ ...prev, skin_condition: e.target.value }))}
                 />
@@ -929,17 +956,16 @@ function TreatmentPageContent() {
                 <Label htmlFor="reaction">Phản ứng sau điều trị</Label>
                 <Textarea
                   id="reaction"
-                  placeholder="Ghi nhận phản ứng của khách hàng..."
-                  rows={2}
+                  placeholder="Ghi chú phản ứng sau điều trị..."
                   value={sessionData.reaction}
                   onChange={(e) => setSessionData((prev) => ({ ...prev, reaction: e.target.value }))}
                 />
               </div>
 
               <div>
-                <Label htmlFor="nextAppointment">Lịch hẹn buổi tiếp theo</Label>
+                <Label htmlFor="next_appointment">Lịch hẹn tiếp theo</Label>
                 <Input
-                  id="nextAppointment"
+                  id="next_appointment"
                   type="date"
                   value={sessionData.next_appointment}
                   onChange={(e) => setSessionData((prev) => ({ ...prev, next_appointment: e.target.value }))}
@@ -947,11 +973,91 @@ function TreatmentPageContent() {
               </div>
 
               <div>
-                <Label htmlFor="notes">Ghi chú thêm</Label>
+                <Label htmlFor="products_sold">Sản phẩm bán</Label>
+                <div className="space-y-4">
+                  {JSON.parse(sessionData.products_sold || '[]').map((item: { product: string, usage_times: string[] }, index: number) => (
+                    <div key={index} className="space-y-2 p-4 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{item.product}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const products = JSON.parse(sessionData.products_sold || '[]');
+                            products.splice(index, 1);
+                            setSessionData(prev => ({ ...prev, products_sold: JSON.stringify(products) }));
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div>
+                        <Label className="text-sm text-muted-foreground mb-2 block">Thời điểm sử dụng</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {USAGE_TIMES.map((time) => (
+                            <Button
+                              key={time.id}
+                              variant={item.usage_times.includes(time.id) ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => {
+                                const products = JSON.parse(sessionData.products_sold || '[]');
+                                const product = products[index];
+                                if (product.usage_times.includes(time.id)) {
+                                  product.usage_times = product.usage_times.filter((t: string) => t !== time.id);
+                                } else {
+                                  product.usage_times.push(time.id);
+                                }
+                                setSessionData(prev => ({ ...prev, products_sold: JSON.stringify(products) }));
+                              }}
+                            >
+                              {time.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <Combobox
+                    options={products.map(product => ({
+                      value: product.id,
+                      label: product.name
+                    }))}
+                    value=""
+                    onValueChange={(value) => {
+                      const newProducts = Array.isArray(value) ? value : [value];
+                      const currentProducts = JSON.parse(sessionData.products_sold || '[]');
+                      
+                      // Tìm thông tin sản phẩm từ ID
+                      const productsToAdd = newProducts
+                        .map(productId => products.find(p => p.id === productId))
+                        .filter(Boolean)
+                        .filter(product => 
+                          !currentProducts.some((p: { product: string }) => p.product === product?.name)
+                        )
+                        .map(product => ({
+                          product: product?.name || '',
+                          usage_times: []
+                        }));
+                      
+                      if (productsToAdd.length > 0) {
+                        setSessionData(prev => ({
+                          ...prev,
+                          products_sold: JSON.stringify([...currentProducts, ...productsToAdd])
+                        }));
+                      }
+                    }}
+                    placeholder="Chọn hoặc tìm kiếm sản phẩm..."
+                    searchPlaceholder="Tìm kiếm sản phẩm..."
+                    emptyText="Không tìm thấy sản phẩm phù hợp."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="notes">Ghi chú</Label>
                 <Textarea
                   id="notes"
-                  placeholder="Ghi chú đặc biệt..."
-                  rows={2}
+                  placeholder="Ghi chú thêm về buổi điều trị..."
                   value={sessionData.notes}
                   onChange={(e) => setSessionData((prev) => ({ ...prev, notes: e.target.value }))}
                 />
