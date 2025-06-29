@@ -3,12 +3,26 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, Users, DollarSign, Clock, TrendingUp, Phone, MessageCircle } from "lucide-react"
+import { Calendar, Users, DollarSign, Clock, TrendingUp, Phone, MessageCircle, AlertCircle } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { getTotalCustomerDebt } from "@/lib/customer-api"
 
 export default function Dashboard() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [totalDebt, setTotalDebt] = useState(0)
+
+  useEffect(() => {
+    const fetchTotalDebt = async () => {
+      try {
+        const debt = await getTotalCustomerDebt()
+        setTotalDebt(debt)
+      } catch (error) {
+        console.error("Error fetching total debt:", error)
+      }
+    }
+    fetchTotalDebt()
+  }, [])
 
   const todayAppointments = [
     { id: 1, name: "Nguyễn Thị A", time: "09:00", treatment: "Điều trị mụn", session: "3/6", status: "confirmed" },
@@ -46,8 +60,25 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Cards - Mobile: 2 columns, Desktop: 4 columns */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6">
+      {/* Stats Cards - Mobile: 2 columns, Desktop: 5 columns */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-6">
+        <Card className="p-3 sm:p-6">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Tổng nợ</CardTitle>
+            <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="p-0 sm:p-6 sm:pt-0">
+            <div className="text-lg sm:text-2xl font-bold text-red-500">
+              {new Intl.NumberFormat("vi-VN", {
+                style: "currency",
+                currency: "VND",
+                maximumFractionDigits: 0
+              }).format(totalDebt)}
+            </div>
+            <p className="text-xs text-muted-foreground hidden sm:block">Tổng nợ khách hàng</p>
+          </CardContent>
+        </Card>
+
         <Card className="p-3 sm:p-6">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0 sm:p-6 sm:pb-2">
             <CardTitle className="text-xs sm:text-sm font-medium">Tổng KH</CardTitle>

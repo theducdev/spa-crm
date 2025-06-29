@@ -261,3 +261,19 @@ export async function deleteCustomer(id: string): Promise<void> {
     throw new Error("Không thể xóa khách hàng")
   }
 }
+
+// Lấy tổng nợ của tất cả khách hàng
+export async function getTotalCustomerDebt(): Promise<number> {
+  const { data, error } = await supabase
+    .from("customers")
+    .select("debt")
+
+  if (error) {
+    console.error("Error fetching total debt:", error)
+    throw new Error("Không thể tải thông tin tổng nợ")
+  }
+
+  // Tính tổng nợ từ tất cả khách hàng
+  const totalDebt = data.reduce((sum, customer) => sum + (customer.debt || 0), 0)
+  return totalDebt
+}
