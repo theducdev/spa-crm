@@ -308,8 +308,60 @@ function TreatmentPageContent() {
         sessionData.next_appointment && `\nLịch hẹn tiếp theo: ${sessionData.next_appointment} (Đã tự động tạo lịch hẹn)`
       ].filter(Boolean).join('\n');
 
+      let zaloMessage = '';
+      // Tự động gửi thông báo Zalo nếu có lịch hẹn tiếp theo
+      if (sessionData.next_appointment) {
+        try {
+          const response = await fetch('https://n8n.tuantoha2.myds.me/webhook/spa-crm/gui-lich-hen', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              customerName: selectedTreatment.customer?.name,
+              customerPhone: selectedTreatment.customer?.phone,
+              customerUid_zalo: selectedTreatment.customer?.uid_zalo,
+              appointmentDate: sessionData.next_appointment,
+              treatmentName: selectedTreatment.treatment_name,
+              sessionNumber: currentSession.session_number,
+              totalSessions: selectedTreatment.total_sessions,
+              products: JSON.parse(sessionData.products_used || '[]')
+                .map((item: { product: string, usage_times: string[] }) => ({
+                  name: item.product,
+                  usageTimes: item.usage_times.map(timeId => 
+                    USAGE_TIMES.find(t => t.id === timeId)?.label || ''
+                  ).filter(Boolean)
+                }))
+            })
+          });
+
+          const data = await response.json();
+          
+          // Cập nhật uid_zalo nếu chưa có, bất kể status là gì
+          if (selectedTreatment.customer && !selectedTreatment.customer.uid_zalo && data.uid_zalo) {
+            const { error: updateError } = await supabase
+              .from('customers')
+              .update({ uid_zalo: data.uid_zalo })
+              .eq('id', selectedTreatment.customer.id);
+
+            if (updateError) {
+              throw updateError;
+            }
+          }
+
+          if (data.status === 'success') {
+            zaloMessage = '\n\nĐã tự động gửi thông báo qua Zalo';
+          } else {
+            zaloMessage = '\n\nKhông thể gửi thông báo qua Zalo';
+          }
+        } catch (error) {
+          console.error('Error sending Zalo notification:', error);
+          zaloMessage = '\n\nKhông thể gửi thông báo qua Zalo';
+        }
+      }
+
       // Hiển thị dialog thành công
-      setSuccessMessage(message);
+      setSuccessMessage(message + zaloMessage);
       setShowSuccessDialog(true);
 
       // Clear cache and reload
@@ -932,35 +984,6 @@ function TreatmentPageContent() {
             <Button variant="outline" onClick={() => setShowSuccessDialog(false)}>
               Đóng
             </Button>
-            {sessionData.next_appointment && (
-              <Button 
-                onClick={handleSendToZalo}
-                disabled={sending}
-                variant={sendStatus === 'error' ? 'destructive' : sendStatus === 'success' ? 'default' : 'secondary'}
-              >
-                {sending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Đang gửi...
-                  </>
-                ) : sendStatus === 'success' ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
-                    Đã gửi thành công
-                  </>
-                ) : sendStatus === 'error' ? (
-                  <>
-                    <X className="h-4 w-4 mr-2" />
-                    Gửi thất bại - Thử lại
-                  </>
-                ) : (
-                  <>
-                    <img src="/zalo-icon.svg" alt="Zalo" className="h-4 w-4 mr-2" />
-                    Gửi lịch hẹn qua Zalo
-                  </>
-                )}
-              </Button>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
