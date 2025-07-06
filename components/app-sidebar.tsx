@@ -1,6 +1,6 @@
 "use client"
 
-import { Users, FileText, BarChart3, Camera, MessageCircle, Home, Settings, Package, Calendar, ClipboardCheck, Box, Heart, Image, Tag, Clock, LogOut } from "lucide-react"
+import { Users, FileText, BarChart3, Camera, MessageCircle, Home, Settings, Package, Calendar, ClipboardCheck, Box, Heart, Image, Tag, Clock, LogOut, ShoppingBag } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -59,6 +59,11 @@ const menuItems = [
     title: "Sản phẩm",
     url: "/products",
     icon: Box,
+  },
+  {
+    title: "Sản phẩm đã bán",
+    url: "/products-sold",
+    icon: ShoppingBag,
   },
   {
     title: "Chăm sóc khách hàng",

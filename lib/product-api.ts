@@ -72,4 +72,12 @@ export async function deleteProduct(id: string) {
     .eq("id", id)
 
   if (error) throw error
+}
+
+export async function getSoldProducts() {
+  const response = await fetch('/api/products-sold')
+  if (!response.ok) {
+    throw new Error('Failed to fetch sold products')
+  }
+  return response.json()
 } 
