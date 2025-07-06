@@ -114,6 +114,8 @@ export default function CustomersPage() {
   const [uploading, setUploading] = useState(false)
   const [treatmentPackages, setTreatmentPackages] = useState<TreatmentPackage[]>([])
   const [loadingPackages, setLoadingPackages] = useState(true)
+  const [isEditingPhone, setIsEditingPhone] = useState(false)
+  const [tempPhone, setTempPhone] = useState("")
 
   // Dialog states
   const [isAddingCustomer, setIsAddingCustomer] = useState(false)
@@ -455,6 +457,8 @@ export default function CustomersPage() {
       tag_id: customer.tag_id,
       debt: customer.debt || 0,
     })
+    setIsEditingPhone(false)
+    setTempPhone("")
     setIsEditingCustomer(true)
   }
 
@@ -743,13 +747,56 @@ export default function CustomersPage() {
                 </div>
                 <div>
                   <Label htmlFor="phone">Số điện thoại</Label>
-                  <Input
-                    id="phone"
-                    defaultValue={formData.phone}
-                    onChange={(e) => updateFormField("phone", e.target.value)}
-                    onBlur={syncFormData}
-                    placeholder="0901234567"
-                  />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      {isEditingPhone ? (
+                        <Input
+                          id="edit-phone"
+                          value={tempPhone}
+                          onChange={(e) => {
+                            const phoneNumber = e.target.value.replace(/[^0-9]/g, '')
+                            setTempPhone(phoneNumber)
+                          }}
+                          onBlur={() => {
+                            if (tempPhone) {
+                              setFormData(prev => ({ ...prev, phone: tempPhone }))
+                            }
+                            setIsEditingPhone(false)
+                          }}
+                          placeholder="0901234567"
+                          autoFocus
+                        />
+                      ) : (
+                        <Input
+                          id="edit-phone"
+                          value={maskPhoneNumber(formData.phone)}
+                          readOnly
+                          placeholder="0901234567"
+                        />
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-6 px-2 text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          if (isEditingPhone) {
+                            setTempPhone("")
+                            setFormData(prev => ({ ...prev, phone: "" }))
+                            setIsEditingPhone(false)
+                          } else {
+                            setTempPhone("")
+                            setIsEditingPhone(true)
+                          }
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                        <span className="sr-only">
+                          {isEditingPhone ? "Hủy" : "Sửa số điện thoại"}
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1248,12 +1295,56 @@ export default function CustomersPage() {
               </div>
               <div>
                 <Label htmlFor="edit-phone">Số điện thoại</Label>
-                <Input
-                  id="edit-phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="0901234567"
-                />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    {isEditingPhone ? (
+                      <Input
+                        id="edit-phone"
+                        value={tempPhone}
+                        onChange={(e) => {
+                          const phoneNumber = e.target.value.replace(/[^0-9]/g, '')
+                          setTempPhone(phoneNumber)
+                        }}
+                        onBlur={() => {
+                          if (tempPhone) {
+                            setFormData(prev => ({ ...prev, phone: tempPhone }))
+                          }
+                          setIsEditingPhone(false)
+                        }}
+                        placeholder="0901234567"
+                        autoFocus
+                      />
+                    ) : (
+                      <Input
+                        id="edit-phone"
+                        value={maskPhoneNumber(formData.phone)}
+                        readOnly
+                        placeholder="0901234567"
+                      />
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-6 px-2 text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        if (isEditingPhone) {
+                          setTempPhone("")
+                          setFormData(prev => ({ ...prev, phone: "" }))
+                          setIsEditingPhone(false)
+                        } else {
+                          setTempPhone("")
+                          setIsEditingPhone(true)
+                        }
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">
+                        {isEditingPhone ? "Hủy" : "Sửa số điện thoại"}
+                      </span>
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
 

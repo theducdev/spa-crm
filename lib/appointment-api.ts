@@ -13,8 +13,11 @@ export interface Appointment {
 }
 
 // Lấy danh sách lịch hẹn
-export async function getAppointments() {
-  const { data, error } = await supabase
+export async function getAppointments(filters?: { 
+  fromDate?: string
+  toDate?: string 
+}) {
+  let query = supabase
     .from("appointments")
     .select(`
       *,
@@ -27,6 +30,16 @@ export async function getAppointments() {
         full_name
       )
     `)
+
+  // Thêm điều kiện lọc theo thời gian
+  if (filters?.fromDate) {
+    query = query.gte("appointment_date", filters.fromDate)
+  }
+  if (filters?.toDate) {
+    query = query.lte("appointment_date", filters.toDate)
+  }
+
+  const { data, error } = await query
     .order("appointment_date", { ascending: true })
     .order("appointment_time", { ascending: true })
 
