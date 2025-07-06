@@ -7,21 +7,29 @@ import { Calendar, Users, DollarSign, Clock, TrendingUp, Phone, MessageCircle, A
 import { Progress } from "@/components/ui/progress"
 import { useState, useEffect } from "react"
 import { getTotalCustomerDebt } from "@/lib/customer-api"
+import { getStaffStats } from "@/lib/appointment-api"
+import { StaffAppointmentsDialog } from "@/components/appointments/staff-appointments-dialog"
 
 export default function Dashboard() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [totalDebt, setTotalDebt] = useState(0)
+  const [staffStats, setStaffStats] = useState<any[]>([])
+  const [selectedStaff, setSelectedStaff] = useState<{ id: number; name: string } | null>(null)
 
   useEffect(() => {
-    const fetchTotalDebt = async () => {
+    const fetchData = async () => {
       try {
-        const debt = await getTotalCustomerDebt()
+        const [debt, staff] = await Promise.all([
+          getTotalCustomerDebt(),
+          getStaffStats()
+        ])
         setTotalDebt(debt)
+        setStaffStats(staff)
       } catch (error) {
-        console.error("Error fetching total debt:", error)
+        console.error("Error fetching dashboard data:", error)
       }
     }
-    fetchTotalDebt()
+    fetchData()
   }, [])
 
   const todayAppointments = [
@@ -208,21 +216,46 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {topStaff.map((staff, index) => (
-                  <div key={index} className="space-y-2">
+                {staffStats.map((staff) => (
+                  <div 
+                    key={staff.created_by_user.id} 
+                    className="space-y-2 cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
+                    onClick={() => setSelectedStaff({
+                      id: staff.created_by_user.id,
+                      name: staff.created_by_user.full_name
+                    })}
+                  >
                     <div className="flex items-center justify-between">
-                      <div className="font-medium text-xs sm:text-sm truncate">{staff.name}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground shrink-0">{staff.revenue}</div>
+                      <div className="font-medium text-xs sm:text-sm truncate">
+                        {staff.created_by_user.full_name}
+                      </div>
+                      <div className="text-xs sm:text-sm text-muted-foreground shrink-0">
+                        {staff.total_appointments} lịch hẹn
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Progress value={(staff.sessions / 15) * 100} className="flex-1 h-1 sm:h-2" />
-                      <span className="text-xs text-muted-foreground shrink-0">{staff.sessions}</span>
+                      <Progress 
+                        value={(staff.total_appointments / Math.max(...staffStats.map(s => s.total_appointments))) * 100} 
+                        className="flex-1 h-1 sm:h-2" 
+                      />
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {staff.total_appointments}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
+
+          {selectedStaff && (
+            <StaffAppointmentsDialog
+              staffId={selectedStaff.id}
+              staffName={selectedStaff.name}
+              open={!!selectedStaff}
+              onOpenChange={(open) => !open && setSelectedStaff(null)}
+            />
+          )}
         </div>
       </div>
     </div>

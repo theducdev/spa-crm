@@ -126,4 +126,70 @@ export async function deleteAppointment(id: string) {
     console.error("Supabase error:", error)
     throw error
   }
+}
+
+// Lấy thống kê nhân viên
+export async function getStaffStats() {
+  const { data, error } = await supabase
+    .from('appointments')
+    .select(`
+      created_by,
+      created_by_user:users!created_by (
+        id,
+        full_name
+      )
+    `)
+    .not('created_by', 'is', null)
+
+  if (error) {
+    console.error("Supabase error:", error)
+    throw error
+  }
+
+  // Group và đếm số lượng lịch hẹn theo nhân viên
+  const stats = data.reduce((acc: any[], curr) => {
+    const existingStaff = acc.find(
+      (item) => item.created_by_user.id === curr.created_by_user.id
+    )
+    
+    if (existingStaff) {
+      existingStaff.total_appointments++
+    } else {
+      acc.push({
+        created_by_user: curr.created_by_user,
+        total_appointments: 1
+      })
+    }
+    
+    return acc
+  }, [])
+
+  // Sắp xếp theo số lượng lịch hẹn giảm dần
+  return stats.sort((a, b) => b.total_appointments - a.total_appointments)
+}
+
+// Lấy danh sách lịch hẹn theo nhân viên
+export async function getStaffAppointments(staffId: number) {
+  const { data, error } = await supabase
+    .from('appointments')
+    .select(`
+      *,
+      customers (
+        id,
+        name
+      ),
+      created_by_user:users!created_by (
+        id,
+        full_name
+      )
+    `)
+    .eq('created_by', staffId)
+    .order('appointment_date', { ascending: false })
+    .order('appointment_time', { ascending: false })
+
+  if (error) {
+    console.error("Supabase error:", error)
+    throw error
+  }
+  return data
 } 
