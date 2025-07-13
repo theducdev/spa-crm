@@ -33,8 +33,20 @@ export async function middleware(request: NextRequest) {
 
   try {
     // Xác thực token
-    await verifyToken(token);
-    return NextResponse.next();
+    const tokenData = await verifyToken(token);
+    
+    // Thêm user ID vào request headers
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-user-id', tokenData.userId.toString());
+
+    // Clone request với headers mới
+    const response = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+
+    return response;
   } catch (error) {
     // Token không hợp lệ
     if (pathname.startsWith('/api/')) {

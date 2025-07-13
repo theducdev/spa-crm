@@ -9,62 +9,98 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { MessageCircle, Phone, Calendar, Search, Send, Clock, Save } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { 
+  fetchCustomerCare, 
+  fetchCustomerFeedback, 
+  createFeedback, 
+  sendMessage, 
+  fetchCustomerMessages 
+} from "@/lib/customer-care-api"
+import { CustomerCareStatus, CustomerFeedback, CustomerMessage } from "@/types/customer-care"
+import { format } from "date-fns"
+import { vi } from "date-fns/locale"
 
 export default function CustomerCarePage() {
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerCareStatus | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [priorityFilter, setPriorityFilter] = useState<string>("")
+  const [page, setPage] = useState(1)
+  const queryClient = useQueryClient()
 
-  const customers = [
-    {
-      id: 1,
-      name: "Nguyễn Thị A",
-      phone: "0901234567",
-      treatment: "Điều trị mụn",
-      sessions: "3/6",
-      nextDate: "2024-06-15",
-      lastFeedback: "Khách hàng cảm thấy hài lòng với kết quả",
-      status: "active",
-      priority: "normal",
-    },
-    {
-      id: 2,
-      name: "Trần Văn B",
-      phone: "0907654321",
-      treatment: "Laser tàn nhang",
-      sessions: "5/8",
-      nextDate: "2024-06-18",
-      lastFeedback: "Có phản ứng nhẹ sau điều trị",
-      status: "follow-up",
-      priority: "high",
-    },
-    {
-      id: 3,
-      name: "Lê Thị C",
-      phone: "0912345678",
-      treatment: "Căng da mặt",
-      sessions: "2/4",
-      nextDate: "2024-06-20",
-      lastFeedback: "Rất hài lòng với dịch vụ",
-      status: "active",
-      priority: "normal",
-    },
-  ]
+  // Fetch danh sách khách hàng
+  const { data: customerCareData, isLoading } = useQuery({
+    queryKey: ["customerCare", page, priorityFilter],
+    queryFn: () => fetchCustomerCare({
+      page,
+      limit: 10,
+      priority: priorityFilter || undefined
+    })
+  })
 
-  const feedbackHistory = [
-    {
-      date: "2024-06-10",
-      session: 3,
-      feedback: "Khách hàng cảm thấy da mịn màng hơn, không còn mụn viêm",
-      reaction: "Không có phản ứng bất thường",
-      nextDate: "2024-06-15",
-    },
-    {
-      date: "2024-06-03",
-      session: 2,
-      feedback: "Da bắt đầu cải thiện, mụn giảm đáng kể",
-      reaction: "Hơi khô da trong 2 ngày đầu",
-      nextDate: "2024-06-10",
-    },
-  ]
+  // Fetch feedback khi chọn khách hàng
+  const { data: feedbackData } = useQuery({
+    queryKey: ["customerFeedback", selectedCustomer?.customer_id],
+    queryFn: () => selectedCustomer ? fetchCustomerFeedback(selectedCustomer.customer_id) : Promise.resolve([]),
+    enabled: !!selectedCustomer
+  })
+
+  // Fetch tin nhắn khi chọn khách hàng
+  const { data: messagesData } = useQuery({
+    queryKey: ["customerMessages", selectedCustomer?.customer_id],
+    queryFn: () => selectedCustomer ? fetchCustomerMessages(selectedCustomer.customer_id) : Promise.resolve([]),
+    enabled: !!selectedCustomer
+  })
+
+  // Mutation để tạo feedback mới
+  const createFeedbackMutation = useMutation({
+    mutationFn: createFeedback,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customerFeedback"] })
+    }
+  })
+
+  // Mutation để gửi tin nhắn
+  const sendMessageMutation = useMutation({
+    mutationFn: sendMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customerMessages"] })
+    }
+  })
+
+  const handleCreateFeedback = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!selectedCustomer) return
+
+    const form = e.currentTarget
+    const formData = new FormData(form)
+
+    await createFeedbackMutation.mutateAsync({
+      customer_id: selectedCustomer.customer_id,
+      feedback_type: formData.get("feedbackType") as "treatment" | "general" | "follow_up",
+      feedback_content: formData.get("feedbackContent") as string,
+      customer_reaction: formData.get("customerReaction") as string,
+      next_appointment_date: formData.get("nextAppointment") as string
+    })
+
+    form.reset()
+  }
+
+  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!selectedCustomer) return
+
+    const form = e.currentTarget
+    const formData = new FormData(form)
+
+    await sendMessageMutation.mutateAsync({
+      customer_id: selectedCustomer.customer_id,
+      message_type: formData.get("messageType") as "appointment_reminder" | "post_treatment_care" | "promotion" | "custom",
+      message_content: formData.get("messageContent") as string
+    })
+
+    form.reset()
+  }
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 pb-20 sm:pb-6">
@@ -84,12 +120,23 @@ export default function CustomerCarePage() {
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Tìm kiếm khách hàng..." className="pl-10" />
+                <Input 
+                  placeholder="Tìm kiếm khách hàng..." 
+                  className="pl-10" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
             </div>
-            <Button variant="outline" className="w-full sm:w-auto">
-              Lọc theo ưu tiên
-            </Button>
+            <select 
+              className="p-2 border rounded"
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+            >
+              <option value="">Tất cả</option>
+              <option value="high">Ưu tiên cao</option>
+              <option value="normal">Ưu tiên thường</option>
+            </select>
           </div>
         </CardContent>
       </Card>
@@ -102,64 +149,74 @@ export default function CustomerCarePage() {
             <CardTitle className="text-base sm:text-lg">Danh sách khách hàng</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 sm:space-y-4">
-              {customers.map((customer) => (
-                <div
-                  key={customer.id}
-                  className={`p-3 sm:p-4 border rounded-lg cursor-pointer transition-colors ${
-                    selectedCustomer?.id === customer.id ? "border-blue-500 bg-blue-50" : "hover:bg-gray-50"
-                  }`}
-                  onClick={() => setSelectedCustomer(customer)}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium text-sm sm:text-base truncate">{customer.name}</h3>
-                        {customer.priority === "high" && (
-                          <Badge variant="destructive" className="text-xs">
-                            Ưu tiên
-                          </Badge>
-                        )}
+            {isLoading ? (
+              <div>Đang tải...</div>
+            ) : (
+              <div className="space-y-3 sm:space-y-4">
+                {customerCareData?.data.map((customer: CustomerCareStatus) => (
+                  <div
+                    key={customer.id}
+                    className={`p-3 sm:p-4 border rounded-lg cursor-pointer transition-colors ${
+                      selectedCustomer?.id === customer.id ? "border-blue-500 bg-blue-50" : "hover:bg-gray-50"
+                    }`}
+                    onClick={() => setSelectedCustomer(customer)}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium text-sm sm:text-base truncate">
+                            {customer.customers?.name}
+                          </h3>
+                          {customer.priority === "high" && (
+                            <Badge variant="destructive" className="text-xs">
+                              Ưu tiên
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          {customer.customers?.phone}
+                        </p>
                       </div>
-                      <p className="text-xs sm:text-sm text-muted-foreground">{customer.phone}</p>
+                      {customer.treatments && (
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {customer.treatments.current_session}/{customer.treatments.total_sessions}
+                        </Badge>
+                      )}
                     </div>
-                    <Badge variant="outline" className="text-xs shrink-0">
-                      {customer.sessions}
-                    </Badge>
-                  </div>
 
-                  <div className="text-xs sm:text-sm text-muted-foreground mb-2 space-y-1">
-                    <p>
-                      <strong>Liệu trình:</strong> {customer.treatment}
-                    </p>
-                    <p>
-                      <strong>Lịch hẹn:</strong> {customer.nextDate}
-                    </p>
-                  </div>
+                    {customer.treatments && (
+                      <div className="text-xs sm:text-sm text-muted-foreground mb-2">
+                        <p><strong>Liệu trình:</strong> {customer.treatments.treatment_name}</p>
+                      </div>
+                    )}
 
-                  <div className="text-xs sm:text-sm mb-3">
-                    <p className="line-clamp-2">
-                      <strong>Phản hồi:</strong> {customer.lastFeedback}
-                    </p>
-                  </div>
+                    {customer.next_contact_date && (
+                      <div className="text-xs sm:text-sm text-muted-foreground mb-2">
+                        <p>
+                          <strong>Lịch hẹn:</strong>{" "}
+                          {format(new Date(customer.next_contact_date), "dd/MM/yyyy", { locale: vi })}
+                        </p>
+                      </div>
+                    )}
 
-                  <div className="flex gap-1 sm:gap-2">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs">
-                      <Phone className="h-3 w-3 mr-1" />
-                      Gọi
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1 text-xs">
-                      <MessageCircle className="h-3 w-3 mr-1" />
-                      Nhắn tin
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1 text-xs">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      Nhắc lịch
-                    </Button>
+                    <div className="flex gap-1 sm:gap-2">
+                      <Button size="sm" variant="outline" className="flex-1 text-xs">
+                        <Phone className="h-3 w-3 mr-1" />
+                        Gọi
+                      </Button>
+                      <Button size="sm" variant="outline" className="flex-1 text-xs">
+                        <MessageCircle className="h-3 w-3 mr-1" />
+                        Nhắn tin
+                      </Button>
+                      <Button size="sm" variant="outline" className="flex-1 text-xs">
+                        <Calendar className="h-3 w-3 mr-1" />
+                        Nhắc lịch
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -183,62 +240,143 @@ export default function CustomerCarePage() {
                 <TabsContent value="feedback" className="space-y-4">
                   <div className="space-y-3">
                     <h4 className="font-medium text-sm">Lịch sử phản hồi</h4>
-                    {feedbackHistory.map((item, index) => (
-                      <div key={index} className="p-3 border rounded-lg">
+                    {feedbackData?.map((feedback: CustomerFeedback) => (
+                      <div key={feedback.id} className="p-3 border rounded-lg">
                         <div className="flex items-center justify-between mb-2">
-                          <Badge variant="outline" className="text-xs">
-                            Buổi {item.session}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">{item.date}</span>
+                          {feedback.treatment_sessions && (
+                            <Badge variant="outline" className="text-xs">
+                              Buổi {feedback.treatment_sessions.session_number}
+                            </Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(feedback.created_at), "dd/MM/yyyy", { locale: vi })}
+                          </span>
                         </div>
                         <div className="space-y-2 text-xs">
                           <p>
-                            <strong>Phản hồi:</strong> {item.feedback}
+                            <strong>Phản hồi:</strong> {feedback.feedback_content}
                           </p>
-                          <p>
-                            <strong>Phản ứng:</strong> {item.reaction}
-                          </p>
-                          <p>
-                            <strong>Lịch hẹn tiếp:</strong> {item.nextDate}
-                          </p>
+                          {feedback.customer_reaction && (
+                            <p>
+                              <strong>Phản ứng:</strong> {feedback.customer_reaction}
+                            </p>
+                          )}
+                          {feedback.next_appointment_date && (
+                            <p>
+                              <strong>Lịch hẹn tiếp:</strong>{" "}
+                              {format(new Date(feedback.next_appointment_date), "dd/MM/yyyy", { locale: vi })}
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="space-y-3">
+                  <form onSubmit={handleCreateFeedback} className="space-y-3">
                     <h4 className="font-medium text-sm">Ghi nhận phản hồi mới</h4>
                     <div>
-                      <Label htmlFor="newFeedback" className="text-sm">
-                        Phản hồi khách hàng
+                      <Label htmlFor="feedbackType" className="text-sm">
+                        Loại phản hồi
                       </Label>
-                      <Textarea id="newFeedback" placeholder="Ghi nhận phản hồi..." rows={2} className="text-sm" />
+                      <select
+                        id="feedbackType"
+                        name="feedbackType"
+                        className="w-full p-2 border rounded text-sm"
+                        required
+                      >
+                        <option value="treatment">Sau điều trị</option>
+                        <option value="general">Chung</option>
+                        <option value="follow_up">Theo dõi</option>
+                      </select>
+                    </div>
+                    <div>
+                      <Label htmlFor="feedbackContent" className="text-sm">
+                        Nội dung phản hồi
+                      </Label>
+                      <Textarea
+                        id="feedbackContent"
+                        name="feedbackContent"
+                        placeholder="Ghi nhận phản hồi..."
+                        rows={2}
+                        className="text-sm"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="customerReaction" className="text-sm">
+                        Phản ứng của khách hàng
+                      </Label>
+                      <Textarea
+                        id="customerReaction"
+                        name="customerReaction"
+                        placeholder="Ghi nhận phản ứng..."
+                        rows={2}
+                        className="text-sm"
+                      />
                     </div>
                     <div>
                       <Label htmlFor="nextAppointment" className="text-sm">
                         Lịch hẹn tiếp theo
                       </Label>
-                      <Input id="nextAppointment" type="date" className="text-sm" />
+                      <Input
+                        id="nextAppointment"
+                        name="nextAppointment"
+                        type="date"
+                        className="text-sm"
+                      />
                     </div>
-                    <Button className="w-full" size="sm">
+                    <Button type="submit" className="w-full" size="sm">
                       <Save className="h-4 w-4 mr-2" />
                       Lưu phản hồi
                     </Button>
-                  </div>
+                  </form>
                 </TabsContent>
 
                 <TabsContent value="contact" className="space-y-4">
                   <div className="space-y-3">
+                    <h4 className="font-medium text-sm">Lịch sử tin nhắn</h4>
+                    {messagesData?.map((message: CustomerMessage) => (
+                      <div key={message.id} className="p-3 border rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {message.message_type.replace(/_/g, " ")}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(message.sent_at), "dd/MM/yyyy HH:mm", { locale: vi })}
+                          </span>
+                        </div>
+                        <p className="text-xs">{message.message_content}</p>
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            Gửi bởi: {message.users?.full_name}
+                          </span>
+                          <Badge
+                            variant={message.delivery_status === "delivered" ? "default" : "secondary"}
+                            className="text-xs"
+                          >
+                            {message.delivery_status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <form onSubmit={handleSendMessage} className="space-y-3">
                     <h4 className="font-medium text-sm">Gửi tin nhắn</h4>
                     <div>
                       <Label htmlFor="messageType" className="text-sm">
                         Loại tin nhắn
                       </Label>
-                      <select className="w-full p-2 border rounded text-sm">
-                        <option>Nhắc lịch hẹn</option>
-                        <option>Chăm sóc sau điều trị</option>
-                        <option>Khuyến mãi đặc biệt</option>
-                        <option>Tin nhắn tùy chỉnh</option>
+                      <select
+                        id="messageType"
+                        name="messageType"
+                        className="w-full p-2 border rounded text-sm"
+                        required
+                      >
+                        <option value="appointment_reminder">Nhắc lịch hẹn</option>
+                        <option value="post_treatment_care">Chăm sóc sau điều trị</option>
+                        <option value="promotion">Khuyến mãi đặc biệt</option>
+                        <option value="custom">Tin nhắn tùy chỉnh</option>
                       </select>
                     </div>
                     <div>
@@ -247,49 +385,23 @@ export default function CustomerCarePage() {
                       </Label>
                       <Textarea
                         id="messageContent"
+                        name="messageContent"
                         placeholder="Nhập nội dung tin nhắn..."
                         rows={3}
                         className="text-sm"
-                        defaultValue="Xin chào! Spa ABC xin nhắc lịch hẹn điều trị vào ngày 15/06/2024 lúc 10:00. Vui lòng xác nhận. Cảm ơn!"
+                        required
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button size="sm" className="text-xs">
-                        <MessageCircle className="h-3 w-3 mr-1" />
-                        Zalo
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-xs">
-                        <Send className="h-3 w-3 mr-1" />
-                        SMS
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm">Lịch sử liên hệ</h4>
-                    <div className="space-y-2">
-                      <div className="p-2 border rounded text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium">Nhắc lịch hẹn</span>
-                          <span className="text-muted-foreground">2024-06-12</span>
-                        </div>
-                        <p className="text-muted-foreground">Đã gửi qua Zalo - Đã xem</p>
-                      </div>
-                      <div className="p-2 border rounded text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium">Chăm sóc sau điều trị</span>
-                          <span className="text-muted-foreground">2024-06-10</span>
-                        </div>
-                        <p className="text-muted-foreground">Đã gửi qua SMS - Đã phản hồi</p>
-                      </div>
-                    </div>
-                  </div>
+                    <Button type="submit" className="w-full" size="sm">
+                      <Send className="h-4 w-4 mr-2" />
+                      Gửi tin nhắn
+                    </Button>
+                  </form>
                 </TabsContent>
               </Tabs>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <Clock className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-sm">Chọn khách hàng để xem chi tiết</p>
+              <div className="text-center text-muted-foreground">
+                Chọn một khách hàng để xem chi tiết
               </div>
             )}
           </CardContent>
