@@ -3,7 +3,6 @@ import type { Treatment, TreatmentSession, TreatmentImage } from "./supabase"
 
 // Lấy danh sách khách hàng và liệu trình
 export async function getTreatments() {
-  console.log("Fetching treatments...")
   const { data, error } = await supabase
     .from("treatments")
     .select(`
@@ -13,8 +12,6 @@ export async function getTreatments() {
     .eq("status", "active")
     .order("created_at", { ascending: false })
 
-  console.log("Treatments data:", data)
-  console.log("Treatments error:", error)
 
   if (error) throw error
   return data as (Treatment & { customer: any })[]
@@ -47,7 +44,7 @@ export async function createTreatment(treatmentData: {
 
 // Lấy thông tin buổi điều trị theo treatment_id
 export async function getTreatmentSessions(treatmentId: string) {
-  console.log("Fetching sessions for treatment:", treatmentId)
+  
   const { data, error } = await supabase
     .from("treatment_sessions")
     .select(`
@@ -57,8 +54,7 @@ export async function getTreatmentSessions(treatmentId: string) {
     .eq("treatment_id", treatmentId)
     .order("session_number", { ascending: true })
 
-  console.log("Sessions data:", data)
-  console.log("Sessions error:", error)
+
 
   if (error) throw error
   return data as (TreatmentSession & { treatment_images: TreatmentImage[] })[]

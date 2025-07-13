@@ -283,8 +283,10 @@ function TreatmentPageContent() {
         ...formattedData
       })
 
-      // Tự động tạo lịch hẹn nếu có next_appointment
-      if (sessionData.next_appointment && selectedTreatment.customer?.id) {
+      // Tự động tạo lịch hẹn nếu có next_appointment và next_appointment đã thay đổi
+      if (sessionData.next_appointment && 
+          selectedTreatment.customer?.id && 
+          sessionData.next_appointment !== currentSession.next_appointment) {
         await createAppointment({
           customer_id: selectedTreatment.customer.id,
           appointment_date: sessionData.next_appointment,
@@ -311,11 +313,16 @@ function TreatmentPageContent() {
         return `${item.product} (${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price)})`;
       }).join('\n');
 
+      // Kiểm tra xem có tạo lịch hẹn mới không
+      const isNewAppointment = sessionData.next_appointment && 
+        selectedTreatment.customer?.id && 
+        sessionData.next_appointment !== currentSession.next_appointment;
+
       const message = [
         `Đã lưu thông tin buổi điều trị ${currentSession.session_number}/${selectedTreatment.total_sessions} cho khách hàng ${selectedTreatment.customer?.name || 'N/A'}`,
         productsUsedDisplay && `\nSản phẩm đã sử dụng:\n${productsUsedDisplay}`,
         productsSoldDisplay && `\nSản phẩm đã bán:\n${productsSoldDisplay}`,
-        sessionData.next_appointment && `\nLịch hẹn tiếp theo: ${sessionData.next_appointment} (Đã tự động tạo lịch hẹn)`
+        isNewAppointment && sessionData.next_appointment && `\nLịch hẹn tiếp theo: ${sessionData.next_appointment} (Đã tự động tạo lịch hẹn)`
       ].filter(Boolean).join('\n');
 
       let zaloMessage = '';
@@ -986,13 +993,12 @@ function TreatmentPageContent() {
                       <div>
                         <Label className="text-sm text-muted-foreground mb-2 block">Giá bán</Label>
                         <Input
-                          type="number"
-                          min="0"
-                          step="1000"
-                          value={item.price || 0}
+                          type="text"
+                          value={new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price || 0)}
                           onChange={(e) => {
+                            const numericValue = parseInt(e.target.value.replace(/[^0-9]/g, '')) || 0;
                             const products = JSON.parse(sessionData.products_sold || '[]');
-                            products[index].price = parseInt(e.target.value) || 0;
+                            products[index].price = numericValue;
                             setSessionData(prev => ({ ...prev, products_sold: JSON.stringify(products) }));
                           }}
                           className="w-full"
