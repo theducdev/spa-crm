@@ -10,43 +10,52 @@ export async function GET(request: Request) {
     const searchParams = new URL(request.url).searchParams
     const priority = searchParams.get('priority')
     const status = searchParams.get('status')
-    const assignedTo = searchParams.get('assignedTo')
+    const search = searchParams.get('search')?.trim()
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const limit = parseInt(searchParams.get('limit') || '100')
     const offset = (page - 1) * limit
 
     // Build base query
     const baseQuery = `
       id,
-      customer_id,
-      priority,
-      status,
-      next_contact_date,
-      last_contact_date,
-      assigned_to,
+      name,
+      phone,
+      email,
+      gender,
+      birth_date,
+      address,
       notes,
-      customers (
+      status,
+      care_priority,
+      tag:customer_tags (
         id,
         name,
-        phone
+        color
       ),
-      users (
-        id,
-        full_name
-      )`
+      debt`
 
     // Build query
-    let query = supabase.from('customer_care_status').select(baseQuery, { count: 'exact' })
+    let query = supabase.from('customers').select(baseQuery, { count: 'exact' })
 
     // Add filters conditionally
     if (priority) {
-      query = query.eq('priority', priority)
+      query = query.eq('care_priority', priority)
     }
     if (status) {
       query = query.eq('status', status)
     }
-    if (assignedTo) {
-      query = query.eq('assigned_to', assignedTo)
+    if (search) {
+      // Tối ưu search: tách từ khóa và tìm kiếm chính xác hơn
+      const searchTerms = search.split(' ').filter(Boolean)
+      searchTerms.forEach(term => {
+        const phoneSearch = term.replace(/\D/g, '') // Chỉ giữ lại số
+        if (phoneSearch) {
+          query = query.filter('phone', 'ilike', `%${phoneSearch}%`)
+        } else {
+          // Sử dụng textSearch để tìm kiếm tiếng Việt tốt hơn
+          query = query.filter('name', 'ilike', `%${term}%`)
+        }
+      })
     }
 
     // Get total count
@@ -58,20 +67,29 @@ export async function GET(request: Request) {
     }
 
     // Get paginated data with the same filters
-    query = supabase.from('customer_care_status').select(baseQuery)
+    query = supabase.from('customers').select(baseQuery)
     
     if (priority) {
-      query = query.eq('priority', priority)
+      query = query.eq('care_priority', priority)
     }
     if (status) {
       query = query.eq('status', status)
     }
-    if (assignedTo) {
-      query = query.eq('assigned_to', assignedTo)
+    if (search) {
+      // Áp dụng cùng điều kiện search
+      const searchTerms = search.split(' ').filter(Boolean)
+      searchTerms.forEach(term => {
+        const phoneSearch = term.replace(/\D/g, '')
+        if (phoneSearch) {
+          query = query.filter('phone', 'ilike', `%${phoneSearch}%`)
+        } else {
+          query = query.filter('name', 'ilike', `%${term}%`)
+        }
+      })
     }
 
-    const { data: customerCare, error: dataError } = await query
-      .order('next_contact_date', { ascending: true })
+    const { data: customers, error: dataError } = await query
+      .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
     if (dataError) {
@@ -79,26 +97,27 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: dataError.message }, { status: 500 })
     }
 
-    // Get treatment information separately for each customer
-    const customerIds = customerCare.map(care => care.customer_id)
+    // Get treatment information for each customer
+    const customerIds = customers.map(customer => customer.id)
     const { data: treatments, error: treatmentsError } = await supabase
       .from('treatments')
       .select('id, treatment_name, total_sessions, current_session, customer_id')
       .in('customer_id', customerIds)
+      .eq('status', 'active')
 
     if (treatmentsError) {
       console.error('Error fetching treatments:', treatmentsError)
       return NextResponse.json({ error: treatmentsError.message }, { status: 500 })
     }
 
-    // Map treatments to customer care records
-    const customerCareWithTreatments = customerCare.map(care => ({
-      ...care,
-      treatments: treatments.filter(t => t.customer_id === care.customer_id)
+    // Map treatments to customers
+    const customersWithTreatments = customers.map(customer => ({
+      ...customer,
+      treatments: treatments.filter(t => t.customer_id === customer.id)
     }))
 
     return NextResponse.json({
-      data: customerCareWithTreatments,
+      data: customersWithTreatments,
       pagination: {
         page,
         limit,

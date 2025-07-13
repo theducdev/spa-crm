@@ -14,11 +14,19 @@ export type Customer = {
   status: "active" | "inactive" | "pending"
   tag_id: string | null
   debt: number
+  care_priority: "normal" | "high"
   tag?: {
     id: string
     name: string
     color: string
   }
+  treatments?: Array<{
+    id: string
+    treatment_name: string
+    total_sessions: number
+    current_session: number
+    customer_id: string
+  }>
   created_at: string
   updated_at: string
 }

@@ -1,15 +1,16 @@
-import { CustomerCareStatus, CustomerFeedback, CustomerMessage } from '@/types/customer-care'
+import { CustomerFeedback, CustomerMessage } from '@/types/customer-care'
+import { Customer } from '@/lib/customer-api'
 
 interface FetchCustomerCareParams {
   page?: number
   limit?: number
   priority?: string
   status?: string
-  assignedTo?: string
+  search?: string
 }
 
 interface CustomerCareResponse {
-  data: CustomerCareStatus[]
+  data: Customer[]
   pagination: {
     page: number
     limit: number
@@ -24,7 +25,7 @@ export async function fetchCustomerCare(params: FetchCustomerCareParams = {}): P
   if (params.limit) searchParams.set('limit', params.limit.toString())
   if (params.priority) searchParams.set('priority', params.priority)
   if (params.status) searchParams.set('status', params.status)
-  if (params.assignedTo) searchParams.set('assignedTo', params.assignedTo)
+  if (params.search) searchParams.set('search', params.search)
 
   const response = await fetch(`/api/customer-care?${searchParams.toString()}`)
   if (!response.ok) {
@@ -96,6 +97,23 @@ export async function fetchCustomerMessages(customerId: string): Promise<Custome
   if (!response.ok) {
     throw new Error('Failed to fetch customer messages')
   }
+  const { data } = await response.json()
+  return data
+} 
+
+export async function updateCustomerPriority(customerId: string, priority: 'high' | 'normal'): Promise<Customer> {
+  const response = await fetch(`/api/customer-care/priority/${customerId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ priority }),
+  })
+
+  if (!response.ok) {
+    throw new Error('Failed to update customer priority')
+  }
+
   const { data } = await response.json()
   return data
 } 
