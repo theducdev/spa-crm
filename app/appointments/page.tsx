@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { getAppointments, deleteAppointment, Appointment } from "@/lib/appointment-api"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { addDays, format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns"
 import { vi } from "date-fns/locale"
+import { Switch } from "@/components/ui/switch"
 
 interface AppointmentWithCustomer extends Appointment {
   customers?: {
@@ -28,25 +29,18 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<AppointmentWithCustomer[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>()
-  
-  // Thêm state cho bộ lọc thời gian
-  const [dateFilters, setDateFilters] = useState({
-    fromDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
-    toDate: format(endOfMonth(new Date()), "yyyy-MM-dd")
-  })
+  const [showCreatedAt, setShowCreatedAt] = useState(false)
+  const [fromDate, setFromDate] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"))
+  const [toDate, setToDate] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"))
 
-  useEffect(() => {
-    loadAppointments()
-  }, [dateFilters]) // Thêm dateFilters vào dependencies
-
-  const loadAppointments = async () => {
+  const loadAppointments = useCallback(async () => {
     try {
-      // Chỉ truyền filters khi có giá trị
       const data = await getAppointments(
-        dateFilters.fromDate && dateFilters.toDate 
+        fromDate && toDate
           ? {
-              fromDate: dateFilters.fromDate,
-              toDate: dateFilters.toDate
+              fromDate,
+              toDate,
+              filterByCreatedAt: showCreatedAt
             }
           : undefined
       )
@@ -54,7 +48,11 @@ export default function AppointmentsPage() {
     } catch (error) {
       console.error("Error loading appointments:", error)
     }
-  }
+  }, [fromDate, toDate, showCreatedAt])
+
+  useEffect(() => {
+    loadAppointments()
+  }, [loadAppointments])
 
   const handleEdit = (id: string) => {
     setSelectedAppointmentId(id)
@@ -68,36 +66,32 @@ export default function AppointmentsPage() {
 
   // Thêm hàm xử lý thay đổi ngày
   const handleDateChange = (field: "fromDate" | "toDate") => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDateFilters(prev => ({
-      ...prev,
-      [field]: e.target.value
-    }))
+    if (field === "fromDate") {
+      setFromDate(e.target.value)
+    } else {
+      setToDate(e.target.value)
+    }
   }
 
   // Thêm các nút shortcut
   const setDateRange = (days: number) => {
     const today = new Date()
-    setDateFilters({
-      fromDate: format(today, "yyyy-MM-dd"),
-      toDate: format(addDays(today, days), "yyyy-MM-dd")
-    })
+    setFromDate(format(today, "yyyy-MM-dd"))
+    setToDate(format(addDays(today, days), "yyyy-MM-dd"))
   }
 
   // Thêm hàm xem lịch hẹn hôm nay
   const setToday = () => {
     const today = new Date()
-    setDateFilters({
-      fromDate: format(today, "yyyy-MM-dd"),
-      toDate: format(today, "yyyy-MM-dd")
-    })
+    const todayStr = format(today, "yyyy-MM-dd")
+    setFromDate(todayStr)
+    setToDate(todayStr)
   }
 
   // Thêm hàm xem tất cả lịch hẹn
   const showAll = () => {
-    setDateFilters({
-      fromDate: "",
-      toDate: ""
-    })
+    setFromDate("")
+    setToDate("")
   }
 
   return (
@@ -115,20 +109,24 @@ export default function AppointmentsPage() {
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 space-y-2">
-              <Label htmlFor="fromDate">Từ ngày</Label>
+              <Label htmlFor="fromDate">
+                {showCreatedAt ? "Từ ngày tạo" : "Từ ngày hẹn"}
+              </Label>
               <Input
                 type="date"
                 id="fromDate"
-                value={dateFilters.fromDate}
+                value={fromDate}
                 onChange={handleDateChange("fromDate")}
               />
             </div>
             <div className="flex-1 space-y-2">
-              <Label htmlFor="toDate">Đến ngày</Label>
+              <Label htmlFor="toDate">
+                {showCreatedAt ? "Đến ngày tạo" : "Đến ngày hẹn"}
+              </Label>
               <Input
                 type="date"
                 id="toDate"
-                value={dateFilters.toDate}
+                value={toDate}
                 onChange={handleDateChange("toDate")}
               />
             </div>
@@ -141,10 +139,8 @@ export default function AppointmentsPage() {
                 variant="outline" 
                 onClick={() => {
                   const today = new Date()
-                  setDateFilters({
-                    fromDate: format(startOfMonth(today), "yyyy-MM-dd"),
-                    toDate: format(endOfMonth(today), "yyyy-MM-dd")
-                  })
+                  setFromDate(format(startOfMonth(today), "yyyy-MM-dd"))
+                  setToDate(format(endOfMonth(today), "yyyy-MM-dd"))
                 }}
               >
                 Tháng này
@@ -154,9 +150,21 @@ export default function AppointmentsPage() {
         </CardContent>
       </Card>
 
+      <div className="flex items-center gap-2 mb-4">
+        <Switch
+          id="show-created-at"
+          checked={showCreatedAt}
+          onCheckedChange={setShowCreatedAt}
+        />
+        <Label htmlFor="show-created-at">
+          {showCreatedAt ? "Hiển thị ngày giờ tạo" : "Hiển thị ngày giờ hẹn"}
+        </Label>
+      </div>
+
       <AppointmentList
         appointments={appointments}
         onEdit={handleEdit}
+        showCreatedAt={showCreatedAt}
       />
 
       <AppointmentDialog

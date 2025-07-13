@@ -36,12 +36,14 @@ interface AppointmentListProps {
   appointments: AppointmentWithCustomer[]
   onEdit: (id: string) => void
   onDelete?: (id: string) => void
+  showCreatedAt?: boolean
 }
 
 export function AppointmentList({
   appointments,
   onEdit,
   onDelete,
+  showCreatedAt = false,
 }: AppointmentListProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -79,8 +81,8 @@ export function AppointmentList({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Ngày</TableHead>
-            <TableHead>Giờ</TableHead>
+            <TableHead>{showCreatedAt ? "Ngày tạo" : "Ngày"}</TableHead>
+            <TableHead>{showCreatedAt ? "Giờ tạo" : "Giờ"}</TableHead>
             <TableHead>Khách hàng</TableHead>
             <TableHead>Trạng thái</TableHead>
             <TableHead>Nhân viên</TableHead>
@@ -95,11 +97,17 @@ export function AppointmentList({
               className={getRowClassName(appointment.status)}
             >
               <TableCell>
-                {format(new Date(appointment.appointment_date), "dd/MM/yyyy", {
-                  locale: vi,
-                })}
+                {showCreatedAt 
+                  ? format(new Date(appointment.created_at), "dd/MM/yyyy", { locale: vi })
+                  : format(new Date(appointment.appointment_date), "dd/MM/yyyy", { locale: vi })
+                }
               </TableCell>
-              <TableCell>{appointment.appointment_time}</TableCell>
+              <TableCell>
+                {showCreatedAt 
+                  ? format(new Date(appointment.created_at), "HH:mm", { locale: vi })
+                  : appointment.appointment_time
+                }
+              </TableCell>
               <TableCell>{appointment.customers?.name}</TableCell>
               <TableCell>
                 <span className={getStatusColor(appointment.status)}>

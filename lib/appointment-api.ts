@@ -15,7 +15,8 @@ export interface Appointment {
 // Lấy danh sách lịch hẹn
 export async function getAppointments(filters?: { 
   fromDate?: string
-  toDate?: string 
+  toDate?: string
+  filterByCreatedAt?: boolean 
 }) {
   let query = supabase
     .from("appointments")
@@ -33,15 +34,23 @@ export async function getAppointments(filters?: {
 
   // Thêm điều kiện lọc theo thời gian
   if (filters?.fromDate) {
-    query = query.gte("appointment_date", filters.fromDate)
+    if (filters.filterByCreatedAt) {
+      query = query.gte("created_at", `${filters.fromDate}T00:00:00`)
+    } else {
+      query = query.gte("appointment_date", filters.fromDate)
+    }
   }
   if (filters?.toDate) {
-    query = query.lte("appointment_date", filters.toDate)
+    if (filters.filterByCreatedAt) {
+      query = query.lte("created_at", `${filters.toDate}T23:59:59`)
+    } else {
+      query = query.lte("appointment_date", filters.toDate)
+    }
   }
 
   const { data, error } = await query
-    .order("appointment_date", { ascending: true })
-    .order("appointment_time", { ascending: true })
+    .order(filters?.filterByCreatedAt ? "created_at" : "appointment_date", { ascending: true })
+    .order(filters?.filterByCreatedAt ? "created_at" : "appointment_time", { ascending: true })
 
   if (error) {
     console.error("Supabase error:", error)
