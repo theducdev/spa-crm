@@ -31,7 +31,7 @@ import { Customer } from "@/lib/customer-api"
 import { CustomerFeedback, CustomerMessage } from "@/types/customer-care"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, maskPhoneNumber } from "@/lib/utils"
 
 export default function CustomerCarePage() {
   const { toast } = useToast()
@@ -350,7 +350,7 @@ export default function CustomerCarePage() {
                           )}
                         </div>
                         <p className="text-xs sm:text-sm text-muted-foreground">
-                          {customer.phone || "Chưa có SĐT"}
+                          {maskPhoneNumber(customer.phone)}
                         </p>
                         {customer.debt > 0 && (
                           <p className="text-xs sm:text-sm text-red-500">
