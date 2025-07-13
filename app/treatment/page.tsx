@@ -82,7 +82,7 @@ function TreatmentPageContent() {
   const [sessionData, setSessionData] = useState({
     session_date: "",
     products_used: "", // Stored as JSON string: [{product: string, usage_times: string[]}]
-    products_sold: "", // Stored as JSON string: [{product: string, usage_times: string[]}]
+    products_sold: "", // Stored as JSON string: [{product: string, price: number}]
     skin_condition: "",
     reaction: "",
     next_appointment: "",
@@ -307,12 +307,8 @@ function TreatmentPageContent() {
         return `${item.product}${times ? ` (${times})` : ''}`;
       }).join('\n');
 
-      const productsSoldDisplay = productsSold.map((item: { product: string, usage_times: string[] }) => {
-        const times = item.usage_times
-          .map(timeId => USAGE_TIMES.find(t => t.id === timeId)?.label || '')
-          .filter(Boolean)
-          .join(', ');
-        return `${item.product}${times ? ` (${times})` : ''}`;
+      const productsSoldDisplay = productsSold.map((item: { product: string, price: number }) => {
+        return `${item.product} (${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.price)})`;
       }).join('\n');
 
       const message = [
@@ -347,11 +343,9 @@ function TreatmentPageContent() {
                   ).filter(Boolean)
                 })),
               productsSold: JSON.parse(sessionData.products_sold || '[]')
-                .map((item: { product: string, usage_times: string[] }) => ({
+                .map((item: { product: string, price: number }) => ({
                   name: item.product,
-                  usageTimes: item.usage_times.map(timeId => 
-                    USAGE_TIMES.find(t => t.id === timeId)?.label || ''
-                  ).filter(Boolean)
+                  price: item.price
                 }))
             })
           });
@@ -433,11 +427,9 @@ function TreatmentPageContent() {
               ).filter(Boolean)
             })),
           productsSold: JSON.parse(sessionData.products_sold || '[]')
-            .map((item: { product: string, usage_times: string[] }) => ({
+            .map((item: { product: string, price: number }) => ({
               name: item.product,
-              usageTimes: item.usage_times.map(timeId => 
-                USAGE_TIMES.find(t => t.id === timeId)?.label || ''
-              ).filter(Boolean)
+              price: item.price
             }))
         })
       });
@@ -975,7 +967,7 @@ function TreatmentPageContent() {
               <div>
                 <Label htmlFor="products_sold">Sản phẩm bán</Label>
                 <div className="space-y-4">
-                  {JSON.parse(sessionData.products_sold || '[]').map((item: { product: string, usage_times: string[] }, index: number) => (
+                  {JSON.parse(sessionData.products_sold || '[]').map((item: { product: string, price: number }, index: number) => (
                     <div key={index} className="space-y-2 p-4 border rounded-lg">
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{item.product}</span>
@@ -992,28 +984,19 @@ function TreatmentPageContent() {
                         </Button>
                       </div>
                       <div>
-                        <Label className="text-sm text-muted-foreground mb-2 block">Thời điểm sử dụng</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {USAGE_TIMES.map((time) => (
-                            <Button
-                              key={time.id}
-                              variant={item.usage_times.includes(time.id) ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => {
-                                const products = JSON.parse(sessionData.products_sold || '[]');
-                                const product = products[index];
-                                if (product.usage_times.includes(time.id)) {
-                                  product.usage_times = product.usage_times.filter((t: string) => t !== time.id);
-                                } else {
-                                  product.usage_times.push(time.id);
-                                }
-                                setSessionData(prev => ({ ...prev, products_sold: JSON.stringify(products) }));
-                              }}
-                            >
-                              {time.label}
-                            </Button>
-                          ))}
-                        </div>
+                        <Label className="text-sm text-muted-foreground mb-2 block">Giá bán</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1000"
+                          value={item.price || 0}
+                          onChange={(e) => {
+                            const products = JSON.parse(sessionData.products_sold || '[]');
+                            products[index].price = parseInt(e.target.value) || 0;
+                            setSessionData(prev => ({ ...prev, products_sold: JSON.stringify(products) }));
+                          }}
+                          className="w-full"
+                        />
                       </div>
                     </div>
                   ))}
@@ -1036,7 +1019,7 @@ function TreatmentPageContent() {
                         )
                         .map(product => ({
                           product: product?.name || '',
-                          usage_times: []
+                          price: 0
                         }));
                       
                       if (productsToAdd.length > 0) {
