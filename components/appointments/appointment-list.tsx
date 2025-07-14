@@ -10,8 +10,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
+import { updateAppointment } from "@/lib/appointment-api"
+import { useState } from "react"
+import { Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface AppointmentWithCustomer extends Appointment {
   id: string
@@ -35,6 +46,7 @@ interface AppointmentWithCustomer extends Appointment {
 interface AppointmentListProps {
   appointments: AppointmentWithCustomer[]
   onEdit: (id: string) => void
+  onRefresh: () => void
   onDelete?: (id: string) => void
   showCreatedAt?: boolean
 }
@@ -42,9 +54,12 @@ interface AppointmentListProps {
 export function AppointmentList({
   appointments,
   onEdit,
+  onRefresh,
   onDelete,
   showCreatedAt = false,
 }: AppointmentListProps) {
+  const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "confirmed":
@@ -76,27 +91,42 @@ export function AppointmentList({
     }
   }
 
+  const handleStatusChange = async (id: string, newStatus: "pending" | "confirmed" | "cancelled") => {
+    try {
+      setLoadingStates(prev => ({ ...prev, [id]: true }))
+      await updateAppointment(id, { status: newStatus })
+      onRefresh()
+    } catch (error) {
+      console.error("Error updating appointment status:", error)
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [id]: false }))
+    }
+  }
+
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead>{showCreatedAt ? "Ngày tạo" : "Ngày"}</TableHead>
-            <TableHead>{showCreatedAt ? "Giờ tạo" : "Giờ"}</TableHead>
-            <TableHead>Khách hàng</TableHead>
-            <TableHead>Trạng thái</TableHead>
-            <TableHead>Nhân viên</TableHead>
-            <TableHead>Ghi chú</TableHead>
-            <TableHead>Thao tác</TableHead>
+          <TableRow className="bg-muted/50">
+            <TableHead className="w-[100px]">{showCreatedAt ? "Ngày tạo" : "Ngày"}</TableHead>
+            <TableHead className="w-[80px]">{showCreatedAt ? "Giờ tạo" : "Giờ"}</TableHead>
+            <TableHead className="w-[180px]">Khách hàng</TableHead>
+            <TableHead className="w-[120px]">Trạng thái</TableHead>
+            <TableHead className="w-[150px]">Nhân viên</TableHead>
+            <TableHead className="min-w-[200px]">Ghi chú</TableHead>
+            <TableHead className="w-[100px] text-right">Thao tác</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {appointments.map((appointment) => (
             <TableRow 
               key={appointment.id}
-              className={getRowClassName(appointment.status)}
+              className={cn(
+                "group hover:bg-muted/50 transition-colors",
+                getRowClassName(appointment.status)
+              )}
             >
-              <TableCell>
+              <TableCell className="font-medium">
                 {showCreatedAt 
                   ? format(new Date(appointment.created_at), "dd/MM/yyyy", { locale: vi })
                   : format(new Date(appointment.appointment_date), "dd/MM/yyyy", { locale: vi })
@@ -108,31 +138,53 @@ export function AppointmentList({
                   : appointment.appointment_time
                 }
               </TableCell>
-              <TableCell>{appointment.customers?.name}</TableCell>
-              <TableCell>
-                <span className={getStatusColor(appointment.status)}>
-                  {getStatusText(appointment.status)}
-                </span>
+              <TableCell className="font-medium truncate">
+                {appointment.customers?.name}
               </TableCell>
-              <TableCell>{appointment.created_by_user?.full_name || "N/A"}</TableCell>
-              <TableCell>{appointment.notes}</TableCell>
               <TableCell>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onEdit(appointment.id)}
+                <div className="flex items-center gap-2 min-w-[110px]">
+                  <Select
+                    value={appointment.status}
+                    onValueChange={(value) => handleStatusChange(appointment.id, value as "pending" | "confirmed" | "cancelled")}
+                    disabled={loadingStates[appointment.id]}
                   >
-                    Sửa
-                  </Button>
-                  {/* <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => onDelete(appointment.id)}
-                  >
-                    Xóa
-                  </Button> */}
+                    <SelectTrigger 
+                      className={cn(
+                        "border-0 p-0 h-auto bg-transparent hover:bg-transparent focus:ring-0 font-medium",
+                        getStatusColor(appointment.status),
+                        loadingStates[appointment.id] && "opacity-50"
+                      )}
+                    >
+                      <SelectValue>{getStatusText(appointment.status)}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent align="start">
+                      <SelectItem value="pending" className="text-yellow-600 font-medium">Chờ xác nhận</SelectItem>
+                      <SelectItem value="confirmed" className="text-green-600 font-medium">Đã xác nhận</SelectItem>
+                      <SelectItem value="cancelled" className="text-red-600 font-medium">Đã hủy</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {loadingStates[appointment.id] && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
                 </div>
+              </TableCell>
+              <TableCell className="truncate">
+                {appointment.created_by_user?.full_name || "N/A"}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                <div className="line-clamp-1">
+                  {appointment.notes}
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit(appointment.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  Sửa
+                </Button>
               </TableCell>
             </TableRow>
           ))}

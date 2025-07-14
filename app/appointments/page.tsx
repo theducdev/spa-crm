@@ -164,6 +164,7 @@ export default function AppointmentsPage() {
       <AppointmentList
         appointments={appointments}
         onEdit={handleEdit}
+        onRefresh={loadAppointments}
         showCreatedAt={showCreatedAt}
       />
 
