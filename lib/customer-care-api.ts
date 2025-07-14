@@ -75,7 +75,12 @@ interface SendMessageParams {
   message_content: string
 }
 
-export async function sendMessage(params: SendMessageParams): Promise<CustomerMessage> {
+interface SendMessageResponse {
+  data: CustomerMessage
+  webhookStatus: 'success' | 'error'
+}
+
+export async function sendMessage(params: SendMessageParams): Promise<SendMessageResponse> {
   const response = await fetch('/api/customer-care/messages', {
     method: 'POST',
     headers: {
@@ -88,8 +93,7 @@ export async function sendMessage(params: SendMessageParams): Promise<CustomerMe
     throw new Error('Failed to send message')
   }
 
-  const { data } = await response.json()
-  return data
+  return response.json()
 }
 
 export async function fetchCustomerMessages(customerId: string): Promise<CustomerMessage[]> {

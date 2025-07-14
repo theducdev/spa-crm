@@ -13,28 +13,51 @@ export async function POST(request: Request) {
       message_content
     } = body
 
-    const {
-      data: { user }
-    } = await supabase.auth.getUser()
-
-    if (!user) {
+    // Lấy user ID từ request headers (được set bởi middleware)
+    const userId = request.headers.get('x-user-id')
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized - User ID not found' },
         { status: 401 }
       )
     }
 
-    // TODO: Tích hợp với service gửi tin nhắn thực tế (SMS/Zalo)
-    // Hiện tại chỉ lưu vào database
+    // Lấy thông tin khách hàng
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('name, phone, uid_zalo')
+      .eq('id', customer_id)
+      .single()
 
+    if (customerError) {
+      return NextResponse.json({ error: customerError.message }, { status: 500 })
+    }
+
+    // Gọi webhook để gửi tin nhắn
+    const webhookResponse = await fetch('https://n8n.tuantoha2.myds.me/webhook/spa-crm/gui-tin-nhan-cham-soc-khach-hang', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        customerUid_zalo: customer.uid_zalo,
+        messageContent: message_content
+      })
+    })
+
+    const webhookData = await webhookResponse.json()
+
+    // Lưu tin nhắn vào database với trạng thái dựa vào response từ webhook
     const { data: message, error } = await supabase
       .from('customer_messages')
       .insert({
         customer_id,
         message_type,
         message_content,
-        sent_by: user.id,
-        delivery_status: 'sent' // Giả lập đã gửi thành công
+        sent_by: parseInt(userId),
+        delivery_status: webhookData.status === 'success' ? 'sent' : 'failed'
       })
       .select()
       .single()
@@ -43,13 +66,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Cập nhật uid_zalo nếu chưa có và webhook trả về uid mới
+    if (!customer.uid_zalo && webhookData.uid_zalo) {
+      const { error: updateError } = await supabase
+        .from('customers')
+        .update({ uid_zalo: webhookData.uid_zalo })
+        .eq('id', customer_id)
+
+      if (updateError) {
+        console.error('Error updating uid_zalo:', updateError)
+      }
+    }
+
     // Cập nhật last_contact_date trong customer_care_status
     await supabase
       .from('customer_care_status')
       .update({ last_contact_date: new Date().toISOString() })
       .eq('customer_id', customer_id)
 
-    return NextResponse.json({ data: message })
+    return NextResponse.json({ 
+      data: message,
+      webhookStatus: webhookData.status
+    })
   } catch (error) {
     console.error('Error sending message:', error)
     return NextResponse.json(

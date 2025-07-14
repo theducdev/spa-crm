@@ -49,6 +49,16 @@ export default function CustomerCarePage() {
     reaction?: string;
     nextAppointment?: string;
   } | null>(null)
+  const [sendingMessage, setSendingMessage] = useState(false)
+  const [messageResult, setMessageResult] = useState<{
+    success: boolean
+    message: string
+  } | null>(null)
+  const [savingFeedback, setSavingFeedback] = useState(false)
+  const [feedbackResult, setFeedbackResult] = useState<{
+    success: boolean
+    message: string
+  } | null>(null)
 
   // Debounce search term
   useEffect(() => {
@@ -145,6 +155,7 @@ export default function CustomerCarePage() {
 
   const handleConfirmFeedback = async () => {
     if (!selectedCustomer || !newFeedbackData) return
+    setSavingFeedback(true)
 
     try {
       await createFeedbackMutation.mutateAsync({
@@ -155,11 +166,22 @@ export default function CustomerCarePage() {
         next_appointment_date: newFeedbackData.nextAppointment || undefined
       })
 
+      setFeedbackResult({
+        success: true,
+        message: "Đã lưu phản hồi thành công"
+      })
+
       // Reset form
       const form = document.querySelector('form') as HTMLFormElement
       if (form) form.reset()
-    } finally {
       setNewFeedbackData(null)
+    } catch (error) {
+      setFeedbackResult({
+        success: false,
+        message: "Không thể lưu phản hồi. Vui lòng thử lại."
+      })
+    } finally {
+      setSavingFeedback(false)
     }
   }
 
@@ -169,14 +191,33 @@ export default function CustomerCarePage() {
 
     const form = e.currentTarget
     const formData = new FormData(form)
+    setSendingMessage(true)
 
-    await sendMessageMutation.mutateAsync({
-      customer_id: selectedCustomer.id,
-      message_type: formData.get("messageType") as "appointment_reminder" | "post_treatment_care" | "promotion" | "custom",
-      message_content: formData.get("messageContent") as string
-    })
+    try {
+      const { webhookStatus } = await sendMessageMutation.mutateAsync({
+        customer_id: selectedCustomer.id,
+        message_type: formData.get("messageType") as "appointment_reminder" | "post_treatment_care" | "promotion" | "custom",
+        message_content: formData.get("messageContent") as string
+      })
 
-    form.reset()
+      setMessageResult({
+        success: webhookStatus === 'success',
+        message: webhookStatus === 'success' 
+          ? "Tin nhắn đã được gửi thành công"
+          : "Không thể gửi tin nhắn. Vui lòng thử lại sau."
+      })
+
+      if (webhookStatus === 'success') {
+        form.reset()
+      }
+    } catch (error) {
+      setMessageResult({
+        success: false,
+        message: "Đã xảy ra lỗi khi gửi tin nhắn. Vui lòng thử lại."
+      })
+    } finally {
+      setSendingMessage(false)
+    }
   }
 
   const handleTogglePriority = async (customer: Customer) => {
@@ -199,13 +240,11 @@ export default function CustomerCarePage() {
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 pb-20 sm:pb-6">
-      {/* Feedback Dialog */}
+      {/* Feedback Confirmation Dialog */}
       <AlertDialog open={!!newFeedbackData} onOpenChange={(open) => !open && setNewFeedbackData(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Xác nhận thêm phản hồi
-            </AlertDialogTitle>
+            <AlertDialogTitle>Xác nhận lưu phản hồi</AlertDialogTitle>
             <AlertDialogDescription>
               <div className="space-y-2">
                 <div><strong>Khách hàng:</strong> {selectedCustomer?.name}</div>
@@ -226,13 +265,36 @@ export default function CustomerCarePage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmFeedback}>
-              {createFeedbackMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+            <AlertDialogAction onClick={handleConfirmFeedback} disabled={savingFeedback}>
+              {savingFeedback ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Đang lưu...
+                </>
               ) : (
-                'Xác nhận'
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Xác nhận
+                </>
               )}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Feedback Result Dialog */}
+      <AlertDialog open={!!feedbackResult} onOpenChange={() => setFeedbackResult(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {feedbackResult?.success ? "Thành công" : "Thất bại"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {feedbackResult?.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Đóng</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -485,9 +547,18 @@ export default function CustomerCarePage() {
                           className="w-full p-2 border rounded"
                         />
                       </div>
-                      <Button type="submit" className="w-full">
-                        <Save className="h-4 w-4 mr-2" />
-                        Lưu phản hồi
+                      <Button type="submit" className="w-full" disabled={savingFeedback}>
+                        {savingFeedback ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Đang lưu...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Lưu phản hồi
+                          </>
+                        )}
                       </Button>
                     </form>
                   </div>
@@ -537,11 +608,37 @@ export default function CustomerCarePage() {
                           required
                         />
                       </div>
-                      <Button type="submit" className="w-full">
-                        <Send className="h-4 w-4 mr-2" />
-                        Gửi tin nhắn
+                      <Button type="submit" className="w-full" disabled={sendingMessage}>
+                        {sendingMessage ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Đang gửi...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Gửi tin nhắn
+                          </>
+                        )}
                       </Button>
                     </form>
+
+                    <AlertDialog open={!!messageResult} onOpenChange={() => setMessageResult(null)}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            {messageResult?.success ? "Thành công" : "Thất bại"}
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {messageResult?.message}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogAction>Đóng</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
                   </div>
                 </TabsContent>
               </Tabs>
