@@ -35,19 +35,20 @@ export interface Treatment {
   customer?: Customer
 }
 
-export interface TreatmentSession {
+export type TreatmentSession = {
   id: string
   treatment_id: string
   session_number: number
-  session_date: string
-  products_used?: string
-  products_sold?: string
-  skin_condition?: string
-  reaction?: string
-  next_appointment?: string
-  notes?: string
-  created_at: string
-  updated_at: string
+  session_date: string | null
+  products_used: string | null
+  skin_condition: string | null
+  reaction: string | null
+  next_appointment: string | null
+  notes: string | null
+  created_at: string | null
+  updated_at: string | null
+  products_sold: string | null
+  after_sales_care: string | null // Thêm trường mới
   treatment_images?: TreatmentImage[]
 }
 

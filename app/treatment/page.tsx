@@ -87,6 +87,7 @@ function TreatmentPageContent() {
     reaction: "",
     next_appointment: "",
     notes: "",
+    after_sales_care: "", // Thêm trường mới
   })
 
   // Cache for treatments data to avoid re-fetching
@@ -133,6 +134,7 @@ function TreatmentPageContent() {
         reaction: session.reaction || "",
         next_appointment: session.next_appointment || "",
         notes: session.notes || "",
+        after_sales_care: session.after_sales_care || "", // Thêm trường mới
       })
     }
   }, [sessions, currentSessionIndex])
@@ -1049,6 +1051,16 @@ function TreatmentPageContent() {
                   placeholder="Ghi chú thêm về buổi điều trị..."
                   value={sessionData.notes}
                   onChange={(e) => setSessionData((prev) => ({ ...prev, notes: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="after_sales_care">Chăm sóc sau bán</Label>
+                <Textarea
+                  id="after_sales_care"
+                  placeholder="Nhập thông tin chăm sóc sau bán..."
+                  value={sessionData.after_sales_care}
+                  onChange={(e) => setSessionData((prev) => ({ ...prev, after_sales_care: e.target.value }))}
                 />
               </div>
 
