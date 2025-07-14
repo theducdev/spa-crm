@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { MessageCircle, Phone, Calendar, Search, Loader2, Save, Send } from "lucide-react"
+import { MessageCircle, Phone, Calendar, Search, Loader2, Save, Send, ChevronDown, ChevronRight } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useToast } from "@/components/ui/use-toast"
@@ -31,7 +31,49 @@ import { Customer } from "@/lib/customer-api"
 import { CustomerFeedback, CustomerMessage } from "@/types/customer-care"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
-import { formatCurrency, maskPhoneNumber } from "@/lib/utils"
+import { formatCurrency } from "@/lib/utils"
+import { getTreatmentsByCustomer, getTreatmentSessions } from "@/lib/treatment-api"
+import type { Treatment, TreatmentSession } from "@/lib/supabase"
+
+// Hàm format sản phẩm sử dụng
+const formatProductsUsed = (productsUsedStr: string | null) => {
+  if (!productsUsedStr) return null
+  try {
+    const products = JSON.parse(productsUsedStr)
+    return products.map((item: any) => {
+      const productName = item.product.split(" - ")[1] || item.product
+      const usageTimes = item.usage_times.map((time: string) => {
+        switch(time) {
+          case "morning": return "Sáng"
+          case "noon": return "Trưa"
+          case "afternoon": return "Chiều"
+          case "evening": return "Tối"
+          default: return time
+        }
+      }).join(", ")
+      return `${productName} (${usageTimes})`
+    }).join("\n")
+  } catch {
+    return productsUsedStr
+  }
+}
+
+// Hàm format sản phẩm bán
+const formatProductsSold = (productsSoldStr: string | null) => {
+  if (!productsSoldStr) return null
+  try {
+    const products = JSON.parse(productsSoldStr)
+    return products.map((item: any) => {
+      const productName = item.product.split(" - ")[1] || item.product
+      const quantity = item.quantity || 1
+      const price = item.price || 0
+      const totalPrice = price * quantity
+      return `${productName}\nSL: ${quantity} x ${formatCurrency(price)} = ${formatCurrency(totalPrice)}`
+    }).join("\n\n")
+  } catch {
+    return productsSoldStr
+  }
+}
 
 export default function CustomerCarePage() {
   const { toast } = useToast()
@@ -59,6 +101,8 @@ export default function CustomerCarePage() {
     success: boolean
     message: string
   } | null>(null)
+  const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null)
+  const [treatmentSessions, setTreatmentSessions] = useState<TreatmentSession[]>([])
 
   // Debounce search term
   useEffect(() => {
@@ -100,6 +144,32 @@ export default function CustomerCarePage() {
     queryFn: () => selectedCustomer ? fetchCustomerMessages(selectedCustomer.id) : Promise.resolve([]),
     enabled: !!selectedCustomer
   })
+
+  // Fetch treatments khi chọn khách hàng
+  const { data: treatments } = useQuery({
+    queryKey: ["customerTreatments", selectedCustomer?.id],
+    queryFn: () => selectedCustomer ? getTreatmentsByCustomer(selectedCustomer.id) : Promise.resolve([]),
+    enabled: !!selectedCustomer
+  })
+
+  // Fetch treatment sessions khi chọn treatment
+  const { data: sessions } = useQuery({
+    queryKey: ["treatmentSessions", selectedTreatment?.id],
+    queryFn: () => selectedTreatment ? getTreatmentSessions(selectedTreatment.id) : Promise.resolve([]),
+    enabled: !!selectedTreatment
+  })
+
+  useEffect(() => {
+    if (sessions) {
+      setTreatmentSessions(sessions)
+    }
+  }, [sessions])
+
+  useEffect(() => {
+    // Reset selected treatment when customer changes
+    setSelectedTreatment(null)
+    setTreatmentSessions([])
+  }, [selectedCustomer])
 
   // Mutation để tạo feedback mới
   const createFeedbackMutation = useMutation({
@@ -412,7 +482,7 @@ export default function CustomerCarePage() {
                           )}
                         </div>
                         <p className="text-xs sm:text-sm text-muted-foreground">
-                          {maskPhoneNumber(customer.phone)}
+                          {(customer.phone)}
                         </p>
                         {customer.debt > 0 && (
                           <p className="text-xs sm:text-sm text-red-500">
@@ -434,10 +504,10 @@ export default function CustomerCarePage() {
                     )}
 
                     <div className="flex gap-1 sm:gap-2">
-                      <Button size="sm" variant="outline" className="flex-1 text-xs">
+                      {/* <Button size="sm" variant="outline" className="flex-1 text-xs">
                         <Phone className="h-3 w-3 mr-1" />
                         Gọi
-                      </Button>
+                      </Button> */}
                       <Button size="sm" variant="outline" className="flex-1 text-xs">
                         <MessageCircle className="h-3 w-3 mr-1" />
                         Nhắn tin
@@ -484,35 +554,86 @@ export default function CustomerCarePage() {
 
                 <TabsContent value="feedback" className="space-y-4">
                   <div className="space-y-3">
-                    <h4 className="font-medium text-sm">Lịch sử phản hồi</h4>
-                    {feedbackList?.map((feedback: CustomerFeedback) => (
-                      <div key={feedback.id} className="p-3 border rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          {feedback.treatment_sessions && (
-                            <Badge variant="outline" className="text-xs">
-                              Buổi {feedback.treatment_sessions.session_number}
-                            </Badge>
+                    <h4 className="font-medium text-sm">Danh sách liệu trình</h4>
+                    {treatments?.map((treatment) => (
+                      <div key={treatment.id} className="border rounded-lg">
+                        <div
+                          className="p-3 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                          onClick={() => setSelectedTreatment(treatment.id === selectedTreatment?.id ? null : treatment)}
+                        >
+                          <div className="flex-1">
+                            <h5 className="font-medium">{treatment.treatment_name}</h5>
+                            <p className="text-sm text-muted-foreground">
+                              Buổi {treatment.current_session}/{treatment.total_sessions}
+                            </p>
+                          </div>
+                          {treatment.id === selectedTreatment?.id ? (
+                            <ChevronDown className="h-5 w-5" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5" />
                           )}
-                          <span className="text-xs text-muted-foreground">
-                            {format(new Date(feedback.created_at), "dd/MM/yyyy", { locale: vi })}
-                          </span>
                         </div>
-                        <p className="text-sm mb-2"><strong>Nội dung phản hồi: </strong>{feedback.feedback_content}</p>
-                        {feedback.customer_reaction && (
-                          <p className="text-xs text-muted-foreground">
-                            <strong>Phản ứng:</strong> {feedback.customer_reaction}
-                          </p>
-                        )}
-                        {feedback.next_appointment_date && (
-                          <p className="text-xs text-muted-foreground">
-                            <strong>Lịch hẹn:</strong>{" "}
-                            {format(new Date(feedback.next_appointment_date), "dd/MM/yyyy", { locale: vi })}
-                          </p>
+
+                        {treatment.id === selectedTreatment?.id && (
+                          <div className="border-t p-3 space-y-3">
+                            {treatmentSessions.map((session) => (
+                              <div key={session.id} className="p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center justify-between mb-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    Buổi {session.session_number}
+                                  </Badge>
+                                  {session.session_date && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(new Date(session.session_date), "dd/MM/yyyy", { locale: vi })}
+                                    </span>
+                                  )}
+                                </div>
+                                {session.skin_condition && (
+                                  <p className="text-sm mb-2">
+                                    <strong>Tình trạng da:</strong> {session.skin_condition}
+                                  </p>
+                                )}
+                                {session.products_used && (
+                                  <div className="text-sm mb-2">
+                                    <strong>Sản phẩm sử dụng:</strong>
+                                    <div className="mt-1 pl-4 whitespace-pre-line">
+                                      {formatProductsUsed(session.products_used)}
+                                    </div>
+                                  </div>
+                                )}
+                                {session.products_sold && (
+                                  <div className="text-sm mb-2">
+                                    <strong>Sản phẩm bán:</strong>
+                                    <div className="mt-1 pl-4 whitespace-pre-line">
+                                      {formatProductsSold(session.products_sold)}
+                                    </div>
+                                  </div>
+                                )}
+                                {session.reaction && (
+                                  <p className="text-sm mb-2">
+                                    <strong>Phản ứng:</strong> {session.reaction}
+                                  </p>
+                                )}
+                                {session.after_sales_care && (
+                                  <p className="text-sm mb-2">
+                                    <strong>Chăm sóc sau điều trị:</strong> {session.after_sales_care}
+                                  </p>
+                                )}
+                                {session.next_appointment && (
+                                  <p className="text-sm">
+                                    <strong>Lịch hẹn tiếp theo:</strong>{" "}
+                                    {format(new Date(session.next_appointment), "dd/MM/yyyy", { locale: vi })}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     ))}
 
-                    <form onSubmit={handleCreateFeedback} className="space-y-3">
+                    {/* Form tạo feedback mới */}
+                    {/* <form onSubmit={handleCreateFeedback} className="space-y-3">
                       <div>
                         <select name="feedbackType" className="w-full p-2 border rounded" required>
                           <option value="treatment">Sau điều trị</option>
@@ -560,7 +681,7 @@ export default function CustomerCarePage() {
                           </>
                         )}
                       </Button>
-                    </form>
+                    </form> */}
                   </div>
                 </TabsContent>
 
