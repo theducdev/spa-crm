@@ -13,6 +13,9 @@ import { Combobox } from "@/components/ui/combobox"
 import { useToast } from "@/hooks/use-toast"
 import { AddSessionDialog } from "@/components/add-session-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import Lightbox from "yet-another-react-lightbox"
+import Zoom from "yet-another-react-lightbox/plugins/zoom"
+import "yet-another-react-lightbox/styles.css"
 import {
   getTreatments,
   getTreatmentSessions,
@@ -66,6 +69,9 @@ function TreatmentPageContent() {
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0)
   const [products, setProducts] = useState<Product[]>([])
   const [currentUser, setCurrentUser] = useState<{ id: number; username: string; role: string } | null>(null)
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
+  const [lightboxImages, setLightboxImages] = useState<Array<{ src: string }>>([])
 
   // Separate loading states
   const [initialLoading, setInitialLoading] = useState(true)
@@ -538,6 +544,18 @@ function TreatmentPageContent() {
     }
   }
 
+  const handleImageClick = (images: { image_url: string; image_type: string }[], startIndex: number) => {
+    const formattedImages = images
+      .filter(img => !img.image_url?.toLowerCase().endsWith('.mp4'))
+      .map(img => ({
+        src: img.image_url || ""
+      }))
+    setLightboxImages(formattedImages)
+    const nonVideoIndex = images.slice(0, startIndex).filter(img => !img.image_url?.toLowerCase().endsWith('.mp4')).length
+    setLightboxIndex(nonVideoIndex)
+    setLightboxOpen(true)
+  }
+
   const currentSession = sessions[currentSessionIndex]
   const beforeImage = currentSession?.treatment_images?.find((img) => img.image_type === "before")
   const afterImage = currentSession?.treatment_images?.find((img) => img.image_type === "after")
@@ -726,8 +744,9 @@ function TreatmentPageContent() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                     {currentSession?.treatment_images
                       ?.filter(img => img.image_type === "before")
-                      .map((image) => (
-                        <div key={image.id} className="relative aspect-square">
+                      .map((image, index, filteredImages) => (
+                        <div key={image.id} className="relative aspect-square group cursor-pointer"
+                             onClick={() => handleImageClick(filteredImages, index)}>
                           {image.image_url?.toLowerCase().endsWith('.mp4') ? (
                             <video
                               src={image.image_url}
@@ -738,14 +757,17 @@ function TreatmentPageContent() {
                             <img
                               src={image.image_url || "/placeholder.svg"}
                               alt="Before treatment"
-                              className="w-full h-full object-cover rounded"
+                              className="w-full h-full object-cover rounded transition-transform group-hover:scale-[1.02]"
                             />
                           )}
                           <Button
                             size="sm"
                             variant="outline"
-                            className="absolute top-2 right-2"
-                            onClick={() => handleDeleteImage(image.id)}
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteImage(image.id)
+                            }}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -787,8 +809,9 @@ function TreatmentPageContent() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                     {currentSession?.treatment_images
                       ?.filter(img => img.image_type === "after")
-                      .map((image) => (
-                        <div key={image.id} className="relative aspect-square">
+                      .map((image, index, filteredImages) => (
+                        <div key={image.id} className="relative aspect-square group cursor-pointer"
+                             onClick={() => handleImageClick(filteredImages, index)}>
                           {image.image_url?.toLowerCase().endsWith('.mp4') ? (
                             <video
                               src={image.image_url}
@@ -799,14 +822,17 @@ function TreatmentPageContent() {
                             <img
                               src={image.image_url || "/placeholder.svg"}
                               alt="After treatment"
-                              className="w-full h-full object-cover rounded"
+                              className="w-full h-full object-cover rounded transition-transform group-hover:scale-[1.02]"
                             />
                           )}
                           <Button
                             size="sm"
                             variant="outline"
-                            className="absolute top-2 right-2"
-                            onClick={() => handleDeleteImage(image.id)}
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteImage(image.id)
+                            }}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -1094,6 +1120,31 @@ function TreatmentPageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add Lightbox component */}
+      <Lightbox
+        open={lightboxOpen}
+        close={() => setLightboxOpen(false)}
+        index={lightboxIndex}
+        slides={lightboxImages}
+        plugins={[Zoom]}
+        animation={{ zoom: 500 }}
+        zoom={{
+          maxZoomPixelRatio: 3,
+          zoomInMultiplier: 1.2,
+          doubleTapDelay: 300,
+          doubleClickDelay: 300,
+          doubleClickMaxStops: 2,
+          keyboardMoveDistance: 50,
+          wheelZoomDistanceFactor: 500,
+          pinchZoomDistanceFactor: 200,
+          scrollToZoom: true,
+        }}
+        carousel={{
+          finite: true,
+          preload: 2,
+        }}
+      />
     </div>
   )
 }
