@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { MessageCircle, Phone, Calendar, Search, Loader2, Save, Send, ChevronDown, ChevronRight } from "lucide-react"
+import { MessageCircle, Phone, Calendar, Search, Loader2, Save, Send, ChevronDown, ChevronRight, Edit2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useToast } from "@/components/ui/use-toast"
@@ -20,6 +20,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { 
   fetchCustomerCare, 
   sendMessage, 
@@ -31,7 +40,7 @@ import { CustomerMessage } from "@/types/customer-care"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import { formatCurrency } from "@/lib/utils"
-import { getTreatmentsByCustomer, getTreatmentSessions } from "@/lib/treatment-api"
+import { getTreatmentsByCustomer, getTreatmentSessions, upsertTreatmentSession } from "@/lib/treatment-api"
 import type { Treatment, TreatmentSession } from "@/lib/supabase"
 
 // Hàm format sản phẩm sử dụng
@@ -92,6 +101,8 @@ export default function CustomerCarePage() {
   } | null>(null)
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null)
   const [treatmentSessions, setTreatmentSessions] = useState<TreatmentSession[]>([])
+  const [editingSession, setEditingSession] = useState<TreatmentSession | null>(null)
+  const [editingAfterSalesCare, setEditingAfterSalesCare] = useState("")
 
   // Debounce search term
   useEffect(() => {
@@ -204,6 +215,27 @@ export default function CustomerCarePage() {
     }
   })
 
+  // Mutation để cập nhật thông tin buổi điều trị
+  const updateSessionMutation = useMutation({
+    mutationFn: (sessionData: Partial<TreatmentSession>) => upsertTreatmentSession(sessionData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["treatmentSessions"] })
+      toast({
+        title: "Đã cập nhật",
+        description: "Thông tin chăm sóc sau điều trị đã được cập nhật",
+        variant: "default",
+      })
+      setEditingSession(null)
+    },
+    onError: (error) => {
+      toast({
+        title: "Lỗi cập nhật",
+        description: "Không thể cập nhật thông tin. Vui lòng thử lại.",
+        variant: "destructive",
+      })
+    }
+  })
+
   const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!selectedCustomer) return
@@ -255,6 +287,15 @@ export default function CustomerCarePage() {
     } finally {
       setPriorityCustomer(null)
     }
+  }
+
+  const handleUpdateAfterSalesCare = async () => {
+    if (!editingSession) return
+
+    await updateSessionMutation.mutateAsync({
+      id: editingSession.id,
+      after_sales_care: editingAfterSalesCare
+    })
   }
 
   return (
@@ -476,11 +517,27 @@ export default function CustomerCarePage() {
                                     <strong>Phản ứng:</strong> {session.reaction}
                                   </p>
                                 )}
-                                {session.after_sales_care && (
-                                  <p className="text-sm mb-2">
-                                    <strong>Chăm sóc sau điều trị:</strong> {session.after_sales_care}
-                                  </p>
-                                )}
+                                <div className="text-sm mb-2">
+                                  <div className="flex items-center justify-between">
+                                    <strong>Chăm sóc sau điều trị:</strong>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2"
+                                      onClick={() => {
+                                        setEditingSession(session)
+                                        setEditingAfterSalesCare(session.after_sales_care || "")
+                                      }}
+                                    >
+                                      <Edit2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                  {session.after_sales_care ? (
+                                    <p className="mt-1">{session.after_sales_care}</p>
+                                  ) : (
+                                    <p className="text-muted-foreground italic mt-1">Chưa có thông tin</p>
+                                  )}
+                                </div>
                                 {session.next_appointment && (
                                   <p className="text-sm">
                                     <strong>Lịch hẹn tiếp theo:</strong>{" "}
@@ -582,6 +639,47 @@ export default function CustomerCarePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog chỉnh sửa chăm sóc sau điều trị */}
+      <Dialog open={!!editingSession} onOpenChange={(open) => !open && setEditingSession(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Chỉnh sửa chăm sóc sau điều trị</DialogTitle>
+            <DialogDescription>
+              Buổi {editingSession?.session_number} - {editingSession?.session_date && format(new Date(editingSession.session_date), "dd/MM/yyyy", { locale: vi })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              value={editingAfterSalesCare}
+              onChange={(e) => setEditingAfterSalesCare(e.target.value)}
+              placeholder="Nhập nội dung chăm sóc sau điều trị..."
+              rows={5}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingSession(null)}>
+              Hủy
+            </Button>
+            <Button 
+              onClick={handleUpdateAfterSalesCare}
+              disabled={updateSessionMutation.isPending}
+            >
+              {updateSessionMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Đang lưu...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Lưu thay đổi
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

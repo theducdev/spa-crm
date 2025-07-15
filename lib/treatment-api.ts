@@ -77,7 +77,25 @@ export async function getTreatmentSession(sessionId: string) {
 
 // Tạo hoặc cập nhật buổi điều trị
 export async function upsertTreatmentSession(sessionData: Partial<TreatmentSession>) {
-  const { data, error } = await supabase.from("treatment_sessions").upsert(sessionData).select().single()
+  // Nếu có id, thực hiện cập nhật
+  if (sessionData.id) {
+    const { data, error } = await supabase
+      .from("treatment_sessions")
+      .update(sessionData)
+      .eq("id", sessionData.id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data as TreatmentSession
+  }
+  
+  // Nếu không có id, thực hiện thêm mới
+  const { data, error } = await supabase
+    .from("treatment_sessions")
+    .insert(sessionData)
+    .select()
+    .single()
 
   if (error) throw error
   return data as TreatmentSession
