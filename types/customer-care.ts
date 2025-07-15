@@ -26,28 +26,6 @@ export interface CustomerCareStatus {
   }
 }
 
-export interface CustomerFeedback {
-  id: string
-  customer_id: string
-  treatment_session_id: string | null
-  feedback_type: 'treatment' | 'general' | 'follow_up'
-  feedback_content: string
-  customer_reaction: string | null
-  next_appointment_date: string | null
-  recorded_by: number
-  created_at: string
-  updated_at: string
-  users?: {
-    id: number
-    full_name: string
-  }
-  treatment_sessions?: {
-    id: string
-    session_number: number
-    session_date: string
-  }
-}
-
 export interface CustomerMessage {
   id: string
   customer_id: string

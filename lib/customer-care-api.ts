@@ -1,4 +1,4 @@
-import { CustomerFeedback, CustomerMessage } from '@/types/customer-care'
+import { CustomerMessage } from '@/types/customer-care'
 import { Customer } from '@/lib/customer-api'
 
 interface FetchCustomerCareParams {
@@ -32,41 +32,6 @@ export async function fetchCustomerCare(params: FetchCustomerCareParams = {}): P
     throw new Error('Failed to fetch customer care data')
   }
   return response.json()
-}
-
-export async function fetchCustomerFeedback(customerId: string): Promise<CustomerFeedback[]> {
-  const response = await fetch(`/api/customer-care/feedback/${customerId}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch customer feedback')
-  }
-  const { data } = await response.json()
-  return data
-}
-
-interface CreateFeedbackParams {
-  customer_id: string
-  feedback_type: 'treatment' | 'general' | 'follow_up'
-  feedback_content: string
-  customer_reaction?: string
-  next_appointment_date?: string
-  treatment_session_id?: string
-}
-
-export async function createFeedback(params: CreateFeedbackParams): Promise<CustomerFeedback> {
-  const response = await fetch(`/api/customer-care/feedback/${params.customer_id}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(params),
-  })
-
-  if (!response.ok) {
-    throw new Error('Failed to create feedback')
-  }
-
-  const { data } = await response.json()
-  return data
 }
 
 interface SendMessageParams {

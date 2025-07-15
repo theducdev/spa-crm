@@ -22,14 +22,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { 
   fetchCustomerCare, 
-  fetchCustomerFeedback, 
-  createFeedback, 
   sendMessage, 
   fetchCustomerMessages,
   updateCustomerPriority
 } from "@/lib/customer-care-api"
 import { Customer, getCustomer } from "@/lib/customer-api"
-import { CustomerFeedback, CustomerMessage } from "@/types/customer-care"
+import { CustomerMessage } from "@/types/customer-care"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import { formatCurrency } from "@/lib/utils"
@@ -87,19 +85,8 @@ export default function CustomerCarePage() {
   const [isSearching, setIsSearching] = useState(false)
   const queryClient = useQueryClient()
   const [priorityCustomer, setPriorityCustomer] = useState<Customer | null>(null)
-  const [newFeedbackData, setNewFeedbackData] = useState<{
-    type: string;
-    content: string;
-    reaction?: string;
-    nextAppointment?: string;
-  } | null>(null)
   const [sendingMessage, setSendingMessage] = useState(false)
   const [messageResult, setMessageResult] = useState<{
-    success: boolean
-    message: string
-  } | null>(null)
-  const [savingFeedback, setSavingFeedback] = useState(false)
-  const [feedbackResult, setFeedbackResult] = useState<{
     success: boolean
     message: string
   } | null>(null)
@@ -155,13 +142,6 @@ export default function CustomerCarePage() {
     }
   }, [customerCareData, searchParams])
 
-  // Fetch feedback khi chọn khách hàng
-  const { data: feedbackList } = useQuery({
-    queryKey: ["customerFeedback", selectedCustomer?.id],
-    queryFn: () => selectedCustomer ? fetchCustomerFeedback(selectedCustomer.id) : Promise.resolve([]),
-    enabled: !!selectedCustomer
-  })
-
   // Fetch tin nhắn khi chọn khách hàng
   const { data: messagesData } = useQuery({
     queryKey: ["customerMessages", selectedCustomer?.id],
@@ -195,14 +175,6 @@ export default function CustomerCarePage() {
     setTreatmentSessions([])
   }, [selectedCustomer])
 
-  // Mutation để tạo feedback mới
-  const createFeedbackMutation = useMutation({
-    mutationFn: createFeedback,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["customerFeedback"] })
-    }
-  })
-
   // Mutation để gửi tin nhắn
   const sendMessageMutation = useMutation({
     mutationFn: sendMessage,
@@ -231,53 +203,6 @@ export default function CustomerCarePage() {
       })
     }
   })
-
-  const handleCreateFeedback = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!selectedCustomer) return
-
-    const form = e.currentTarget
-    const formData = new FormData(form)
-
-    setNewFeedbackData({
-      type: formData.get("feedbackType") as string,
-      content: formData.get("feedbackContent") as string,
-      reaction: formData.get("customerReaction") as string,
-      nextAppointment: formData.get("nextAppointment") as string
-    })
-  }
-
-  const handleConfirmFeedback = async () => {
-    if (!selectedCustomer || !newFeedbackData) return
-    setSavingFeedback(true)
-
-    try {
-      await createFeedbackMutation.mutateAsync({
-        customer_id: selectedCustomer.id,
-        feedback_type: newFeedbackData.type as 'treatment' | 'general' | 'follow_up',
-        feedback_content: newFeedbackData.content,
-        customer_reaction: newFeedbackData.reaction || undefined,
-        next_appointment_date: newFeedbackData.nextAppointment || undefined
-      })
-
-      setFeedbackResult({
-        success: true,
-        message: "Đã lưu phản hồi thành công"
-      })
-
-      // Reset form
-      const form = document.querySelector('form') as HTMLFormElement
-      if (form) form.reset()
-      setNewFeedbackData(null)
-    } catch (error) {
-      setFeedbackResult({
-        success: false,
-        message: "Không thể lưu phản hồi. Vui lòng thử lại."
-      })
-    } finally {
-      setSavingFeedback(false)
-    }
-  }
 
   const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -334,93 +259,6 @@ export default function CustomerCarePage() {
 
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 pb-20 sm:pb-6">
-      {/* Feedback Confirmation Dialog */}
-      <AlertDialog open={!!newFeedbackData} onOpenChange={(open) => !open && setNewFeedbackData(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận lưu phản hồi</AlertDialogTitle>
-            <AlertDialogDescription>
-              <div className="space-y-2">
-                <div><strong>Khách hàng:</strong> {selectedCustomer?.name}</div>
-                <div><strong>Loại phản hồi:</strong> {
-                  newFeedbackData?.type === 'treatment' ? 'Sau điều trị' :
-                  newFeedbackData?.type === 'general' ? 'Chung' :
-                  newFeedbackData?.type === 'follow_up' ? 'Theo dõi' : ''
-                }</div>
-                <div><strong>Nội dung:</strong> {newFeedbackData?.content}</div>
-                {newFeedbackData?.reaction && (
-                  <div><strong>Phản ứng:</strong> {newFeedbackData.reaction}</div>
-                )}
-                {newFeedbackData?.nextAppointment && (
-                  <div><strong>Lịch hẹn:</strong> {format(new Date(newFeedbackData.nextAppointment), "dd/MM/yyyy", { locale: vi })}</div>
-                )}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmFeedback} disabled={savingFeedback}>
-              {savingFeedback ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Đang lưu...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Xác nhận
-                </>
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Feedback Result Dialog */}
-      <AlertDialog open={!!feedbackResult} onOpenChange={() => setFeedbackResult(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {feedbackResult?.success ? "Thành công" : "Thất bại"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {feedbackResult?.message}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction>Đóng</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Priority Dialog */}
-      <AlertDialog open={!!priorityCustomer} onOpenChange={(open) => !open && setPriorityCustomer(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {priorityCustomer?.care_priority === 'high' 
-                ? 'Bỏ ưu tiên khách hàng?' 
-                : 'Đặt ưu tiên cho khách hàng?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {priorityCustomer?.care_priority === 'high'
-                ? `Bạn có chắc muốn bỏ ưu tiên cho khách hàng ${priorityCustomer?.name}?`
-                : `Bạn có chắc muốn đặt ưu tiên cho khách hàng ${priorityCustomer?.name}?`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmPriority}>
-              {updatePriorityMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                'Xác nhận'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold">Chăm sóc khách hàng</h1>
@@ -655,57 +493,6 @@ export default function CustomerCarePage() {
                         )}
                       </div>
                     ))}
-
-                    {/* Form tạo feedback mới */}
-                    {/* <form onSubmit={handleCreateFeedback} className="space-y-3">
-                      <div>
-                        <select name="feedbackType" className="w-full p-2 border rounded" required>
-                          <option value="treatment">Sau điều trị</option>
-                          <option value="general">Chung</option>
-                          <option value="follow_up">Theo dõi</option>
-                        </select>
-                      </div>
-                      <div>
-                        <textarea
-                          name="feedbackContent"
-                          placeholder="Nội dung phản hồi..."
-                          className="w-full p-2 border rounded"
-                          rows={3}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="text"
-                          name="customerReaction"
-                          placeholder="Phản ứng của khách hàng..."
-                          className="w-full p-2 border rounded"
-                        />
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground mb-1">
-                          Lịch hẹn tiếp theo
-                        </div>
-                        <input
-                          type="date"
-                          name="nextAppointment"
-                          className="w-full p-2 border rounded"
-                        />
-                      </div>
-                      <Button type="submit" className="w-full" disabled={savingFeedback}>
-                        {savingFeedback ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Đang lưu...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4 mr-2" />
-                            Lưu phản hồi
-                          </>
-                        )}
-                      </Button>
-                    </form> */}
                   </div>
                 </TabsContent>
 
