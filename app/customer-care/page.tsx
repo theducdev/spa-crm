@@ -9,6 +9,7 @@ import { MessageCircle, Phone, Calendar, Search, Loader2, Save, Send, ChevronDow
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useToast } from "@/components/ui/use-toast"
+import { useSearchParams } from "next/navigation"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,9 +26,9 @@ import {
   createFeedback, 
   sendMessage, 
   fetchCustomerMessages,
-  updateCustomerPriority 
+  updateCustomerPriority
 } from "@/lib/customer-care-api"
-import { Customer } from "@/lib/customer-api"
+import { Customer, getCustomer } from "@/lib/customer-api"
 import { CustomerFeedback, CustomerMessage } from "@/types/customer-care"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
@@ -76,6 +77,7 @@ const formatProductsSold = (productsSoldStr: string | null) => {
 }
 
 export default function CustomerCarePage() {
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
@@ -119,17 +121,39 @@ export default function CustomerCarePage() {
   }, [searchTerm])
 
   // Fetch danh sách khách hàng
-  const { data: customerCareData, isLoading } = useQuery({
+  const { data: customerCareData, isLoading } = useQuery<{ data: Customer[], pagination?: { total: number } }>({
     queryKey: ["customerCare", page, priorityFilter, debouncedSearch],
-    queryFn: () => {
-      return fetchCustomerCare({
+    queryFn: async () => {
+      const customerId = searchParams.get("customerId")
+      if (customerId) {
+        // Nếu có customerId từ URL, chỉ lấy thông tin của khách hàng đó
+        const customer = await getCustomer(customerId)
+        return {
+          data: customer ? [customer] : [],
+          pagination: { total: customer ? 1 : 0 }
+        }
+      }
+      // Ngược lại lấy toàn bộ danh sách như bình thường
+      const response = await fetchCustomerCare({
         page,
         limit: 100,
         priority: priorityFilter || undefined,
         search: debouncedSearch || undefined
       })
+      return {
+        data: response.data,
+        pagination: { total: response.pagination.total }
+      }
     }
   })
+
+  // Tự động chọn khách hàng từ URL
+  useEffect(() => {
+    const customerId = searchParams.get("customerId")
+    if (customerId && customerCareData?.data?.[0]?.id === customerId) {
+      setSelectedCustomer(customerCareData.data[0])
+    }
+  }, [customerCareData, searchParams])
 
   // Fetch feedback khi chọn khách hàng
   const { data: feedbackList } = useQuery({

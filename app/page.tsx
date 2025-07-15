@@ -6,24 +6,42 @@ import { Button } from "@/components/ui/button"
 import { Calendar, Users, DollarSign, Clock, TrendingUp, Phone, MessageCircle, AlertCircle } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { useState, useEffect } from "react"
-import { getTotalCustomerDebt } from "@/lib/customer-api"
-import { getStaffStats } from "@/lib/appointment-api"
+import { getTotalCustomerDebt, getTotalActiveCustomers } from "@/lib/customer-api"
+import { getStaffStats, getTodayAppointments } from "@/lib/appointment-api"
+import { getTodaySessionsStats, getCompletionRate, getUpcomingEndTreatments } from "@/lib/treatment-api"
 import { StaffAppointmentsDialog } from "@/components/appointments/staff-appointments-dialog"
+import { useRouter } from "next/navigation"
 
 export default function Dashboard() {
+  const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [totalDebt, setTotalDebt] = useState(0)
+  const [totalCustomers, setTotalCustomers] = useState(0)
+  const [todaySessions, setTodaySessions] = useState({ total: 0, completed: 0 })
+  const [completionRate, setCompletionRate] = useState(0)
+  const [todayAppointments, setTodayAppointments] = useState<any[]>([])
+  const [upcomingEndTreatments, setUpcomingEndTreatments] = useState<any[]>([])
   const [staffStats, setStaffStats] = useState<any[]>([])
   const [selectedStaff, setSelectedStaff] = useState<{ id: number; name: string } | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [debt, staff] = await Promise.all([
+        const [debt, customers, sessions, completion, appointments, upcoming, staff] = await Promise.all([
           getTotalCustomerDebt(),
+          getTotalActiveCustomers(),
+          getTodaySessionsStats(),
+          getCompletionRate(),
+          getTodayAppointments(),
+          getUpcomingEndTreatments(),
           getStaffStats()
         ])
         setTotalDebt(debt)
+        setTotalCustomers(customers)
+        setTodaySessions(sessions)
+        setCompletionRate(completion)
+        setTodayAppointments(appointments)
+        setUpcomingEndTreatments(upcoming)
         setStaffStats(staff)
       } catch (error) {
         console.error("Error fetching dashboard data:", error)
@@ -31,13 +49,6 @@ export default function Dashboard() {
     }
     fetchData()
   }, [])
-
-  const todayAppointments = [
-    { id: 1, name: "Nguyễn Thị A", time: "09:00", treatment: "Điều trị mụn", session: "3/6", status: "confirmed" },
-    { id: 2, name: "Trần Văn B", time: "10:30", treatment: "Laser tàn nhang", session: "5/8", status: "pending" },
-    { id: 3, name: "Lê Thị C", time: "14:00", treatment: "Căng da mặt", session: "2/4", status: "confirmed" },
-    { id: 4, name: "Phạm Văn D", time: "15:30", treatment: "Điều trị sẹo", session: "1/6", status: "completed" },
-  ]
 
   const upcomingEnd = [
     { name: "Nguyễn Thị E", sessions: "5/6", nextDate: "2024-06-15" },
@@ -68,7 +79,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Cards - Mobile: 2 columns, Desktop: 5 columns */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-6">
         <Card className="p-3 sm:p-6">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-0 sm:p-6 sm:pb-2">
@@ -93,8 +104,8 @@ export default function Dashboard() {
             <Users className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-0 sm:p-6 sm:pt-0">
-            <div className="text-lg sm:text-2xl font-bold">1,234</div>
-            <p className="text-xs text-muted-foreground hidden sm:block">+12% so với tháng trước</p>
+            <div className="text-lg sm:text-2xl font-bold">{totalCustomers.toLocaleString("vi-VN")}</div>
+            <p className="text-xs text-muted-foreground hidden sm:block">Khách hàng đang hoạt động</p>
           </CardContent>
         </Card>
 
@@ -104,8 +115,8 @@ export default function Dashboard() {
             <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-0 sm:p-6 sm:pt-0">
-            <div className="text-lg sm:text-2xl font-bold">24</div>
-            <p className="text-xs text-muted-foreground hidden sm:block">4 buổi đã hoàn thành</p>
+            <div className="text-lg sm:text-2xl font-bold">{todaySessions.total}</div>
+            <p className="text-xs text-muted-foreground hidden sm:block">{todaySessions.completed} buổi đã hoàn thành</p>
           </CardContent>
         </Card>
 
@@ -126,13 +137,13 @@ export default function Dashboard() {
             <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-0 sm:p-6 sm:pt-0">
-            <div className="text-lg sm:text-2xl font-bold">94%</div>
-            <p className="text-xs text-muted-foreground hidden sm:block">Khách hàng hoàn thành</p>
+            <div className="text-lg sm:text-2xl font-bold">{completionRate}%</div>
+            <p className="text-xs text-muted-foreground hidden sm:block">Liệu trình đã hoàn thành</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Content - Mobile: Stack vertically, Desktop: Side by side */}
+      {/* Main Content */}
       <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-3 sm:gap-6">
         {/* Today's Appointments */}
         <Card className="sm:col-span-2">
@@ -143,41 +154,53 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 sm:space-y-4">
-            {todayAppointments.map((appointment) => (
-              <div key={appointment.id} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg">
-                <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
-                  <div className="text-xs sm:text-sm font-medium text-blue-600 shrink-0">{appointment.time}</div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-sm sm:text-base truncate">{appointment.name}</div>
-                    <div className="text-xs sm:text-sm text-muted-foreground truncate">{appointment.treatment}</div>
+            {todayAppointments.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                Không có lịch hẹn nào hôm nay
+              </div>
+            ) : (
+              todayAppointments.map((appointment) => (
+                <div key={appointment.id} className="flex items-center justify-between p-3 sm:p-4 border rounded-lg">
+                  <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                    <div className="text-xs sm:text-sm font-medium text-blue-600 shrink-0">{appointment.time}</div>
+                    <div className="min-w-0 flex-1">
+                      <div 
+                        className="font-medium text-sm sm:text-base truncate cursor-pointer hover:text-blue-600 hover:underline flex items-center gap-1"
+                        onClick={() => router.push(`/customer-care?customerId=${appointment.customerId}`)}
+                      >
+                        {appointment.name}
+                        <span className="text-xs text-muted-foreground">(Xem CSKH)</span>
+                      </div>
+                      <div className="text-xs sm:text-sm text-muted-foreground truncate">{appointment.treatment}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                    <Badge variant="outline" className="text-xs">
+                      {appointment.session}
+                    </Badge>
+                    <Badge
+                      variant={
+                        appointment.status === "cancelled"
+                          ? "destructive"
+                          : appointment.status === "confirmed"
+                            ? "default"
+                            : "secondary"
+                      }
+                      className="text-xs hidden sm:inline-flex"
+                    >
+                      {appointment.status === "cancelled"
+                        ? "Đã hủy"
+                        : appointment.status === "confirmed"
+                          ? "Đã xác nhận"
+                          : "Chờ xác nhận"}
+                    </Badge>
+                    {/* <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                      <Phone className="h-3 w-3 sm:h-4 sm:w-4" />
+                    </Button> */}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                  <Badge variant="outline" className="text-xs">
-                    {appointment.session}
-                  </Badge>
-                  <Badge
-                    variant={
-                      appointment.status === "completed"
-                        ? "default"
-                        : appointment.status === "confirmed"
-                          ? "secondary"
-                          : "outline"
-                    }
-                    className="text-xs hidden sm:inline-flex"
-                  >
-                    {appointment.status === "completed"
-                      ? "Hoàn thành"
-                      : appointment.status === "confirmed"
-                        ? "Đã xác nhận"
-                        : "Chờ xác nhận"}
-                  </Badge>
-                  <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                    <Phone className="h-3 w-3 sm:h-4 sm:w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -190,21 +213,38 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {upcomingEnd.map((client, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 sm:p-3 border rounded">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-xs sm:text-sm truncate">{client.name}</div>
-                      <div className="text-xs text-muted-foreground">Buổi {client.sessions}</div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-xs text-muted-foreground">{client.nextDate}</div>
-                      <Button size="sm" variant="outline" className="mt-1 h-6 text-xs">
-                        <MessageCircle className="h-3 w-3 mr-1" />
-                        Nhắc
-                      </Button>
-                    </div>
+                {upcomingEndTreatments.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-4">
+                    Không có liệu trình nào sắp kết thúc
                   </div>
-                ))}
+                ) : (
+                  upcomingEndTreatments.map((treatment) => (
+                    <div key={treatment.id} className="flex items-center justify-between p-2 sm:p-3 border rounded">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-xs sm:text-sm truncate">{treatment.name}</div>
+                        <div className="text-xs text-muted-foreground">Buổi {treatment.sessions}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        {treatment.nextDate ? (
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(treatment.nextDate).toLocaleDateString("vi-VN")}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-yellow-600">Chưa có lịch hẹn</div>
+                        )}
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="mt-1 h-6 text-xs"
+                          onClick={() => router.push(`/customer-care?customerId=${treatment.customerId}`)}
+                        >
+                          <MessageCircle className="h-3 w-3 mr-1" />
+                          Nhắc
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>

@@ -202,3 +202,43 @@ export async function getStaffAppointments(staffId: number) {
   }
   return data
 } 
+
+// Lấy danh sách lịch hẹn trong ngày
+export async function getTodayAppointments() {
+  const today = new Date().toISOString().split('T')[0]
+
+  const { data, error } = await supabase
+    .from("appointments")
+    .select(`
+      *,
+      customer:customers (
+        id,
+        name,
+        treatments (
+          id,
+          treatment_name,
+          total_sessions,
+          current_session
+        )
+      )
+    `)
+    .eq("appointment_date", today)
+    .order("appointment_time", { ascending: true })
+
+  if (error) {
+    console.error("Error fetching today's appointments:", error)
+    throw new Error("Không thể lấy danh sách lịch hẹn hôm nay")
+  }
+
+  return data.map(appointment => ({
+    id: appointment.id,
+    customerId: appointment.customer?.id || "",
+    name: appointment.customer?.name || "Không xác định",
+    time: appointment.appointment_time.slice(0, 5), // Format HH:mm
+    treatment: appointment.customer?.treatments?.[0]?.treatment_name || "Chưa có liệu trình",
+    session: appointment.customer?.treatments?.[0] 
+      ? `${appointment.customer.treatments[0].current_session}/${appointment.customer.treatments[0].total_sessions}`
+      : "-",
+    status: appointment.status
+  }))
+} 

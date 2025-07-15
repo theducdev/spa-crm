@@ -285,3 +285,18 @@ export async function getTotalCustomerDebt(): Promise<number> {
   const totalDebt = data.reduce((sum, customer) => sum + (customer.debt || 0), 0)
   return totalDebt
 }
+
+// Lấy tổng số khách hàng đang hoạt động
+export async function getTotalActiveCustomers(): Promise<number> {
+  const { count, error } = await supabase
+    .from("customers")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "active")
+
+  if (error) {
+    console.error("Error counting customers:", error)
+    throw new Error("Không thể lấy tổng số khách hàng")
+  }
+
+  return count || 0
+}

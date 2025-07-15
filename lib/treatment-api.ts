@@ -311,3 +311,125 @@ export async function deleteTreatment(id: string) {
   if (error) throw error
   return true
 }
+
+// Lấy thống kê buổi điều trị trong ngày
+export async function getTodaySessionsStats(): Promise<{
+  total: number;
+  completed: number;
+}> {
+  const today = new Date().toISOString().split('T')[0]
+  
+  const { data, error } = await supabase
+    .from("treatment_sessions")
+    .select(`
+      id,
+      notes,
+      products_used,
+      skin_condition,
+      reaction,
+      after_sales_care
+    `)
+    .eq("session_date", today)
+
+  if (error) {
+    console.error("Error fetching today's sessions:", error)
+    throw new Error("Không thể lấy thông tin buổi điều trị hôm nay")
+  }
+
+  const total = data.length
+  // Một buổi được coi là hoàn thành nếu có bất kỳ thông tin nào được điền
+  const completed = data.filter(session => 
+    session.notes || 
+    session.products_used ||
+    session.skin_condition ||
+    session.reaction ||
+    session.after_sales_care
+  ).length
+
+  return {
+    total,
+    completed
+  }
+}
+
+// Lấy tỷ lệ khách hàng hoàn thành liệu trình
+export async function getCompletionRate(): Promise<number> {
+  const { data, error } = await supabase
+    .from("treatments")
+    .select(`
+      id,
+      current_session,
+      total_sessions,
+      status
+    `)
+    .eq("status", "active")
+
+  if (error) {
+    console.error("Error fetching treatments completion rate:", error)
+    throw new Error("Không thể lấy tỷ lệ hoàn thành")
+  }
+
+  if (!data || data.length === 0) return 0
+
+  const completedTreatments = data.filter(
+    treatment => treatment.current_session === treatment.total_sessions
+  ).length
+
+  const completionRate = (completedTreatments / data.length) * 100
+  return Math.round(completionRate)
+}
+
+// Lấy danh sách liệu trình sắp kết thúc
+export async function getUpcomingEndTreatments(): Promise<Array<{
+  id: string;
+  customerId: string;
+  name: string;
+  sessions: string;
+  nextDate: string | null;
+}>> {
+  const { data, error } = await supabase
+    .from("treatments")
+    .select(`
+      id,
+      customer_id,
+      total_sessions,
+      current_session,
+      customer:customers (
+        id,
+        name
+      ),
+      treatment_sessions (
+        session_date,
+        next_appointment
+      )
+    `)
+    .eq("status", "active")
+    .order("current_session", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching upcoming end treatments:", error)
+    throw new Error("Không thể lấy danh sách liệu trình sắp kết thúc")
+  }
+
+  // Lọc các liệu trình còn 1-2 buổi
+  const upcomingEnd = data
+    .filter(treatment => {
+      const remainingSessions = treatment.total_sessions - treatment.current_session
+      return remainingSessions > 0 && remainingSessions <= 2
+    })
+    .slice(0, 5) // Chỉ lấy 5 liệu trình gần nhất
+
+  return upcomingEnd.map(treatment => {
+    // Lấy ngày hẹn tiếp theo từ buổi điều trị gần nhất
+    const latestSession = treatment.treatment_sessions
+      .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())[0]
+
+    return {
+      id: treatment.id,
+      customerId: treatment.customer_id,
+      name: treatment.customer?.name || "Không xác định",
+      sessions: `${treatment.current_session}/${treatment.total_sessions}`,
+      nextDate: latestSession?.next_appointment || null
+    }
+  })
+}

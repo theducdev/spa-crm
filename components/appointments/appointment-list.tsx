@@ -23,6 +23,7 @@ import { updateAppointment } from "@/lib/appointment-api"
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 interface AppointmentWithCustomer extends Appointment {
   id: string
@@ -58,6 +59,7 @@ export function AppointmentList({
   onDelete,
   showCreatedAt = false,
 }: AppointmentListProps) {
+  const router = useRouter()
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
 
   const getStatusColor = (status: string) => {
@@ -139,7 +141,13 @@ export function AppointmentList({
                 }
               </TableCell>
               <TableCell className="font-medium truncate">
-                {appointment.customers?.name}
+                <div 
+                  className="cursor-pointer hover:text-blue-600 hover:underline flex items-center gap-1"
+                  onClick={() => router.push(`/customer-care?customerId=${appointment.customers?.id}`)}
+                >
+                  {appointment.customers?.name}
+                  <span className="text-xs text-muted-foreground">(Xem CSKH)</span>
+                </div>
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2 min-w-[110px]">
