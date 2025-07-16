@@ -30,7 +30,7 @@ import type { Treatment, TreatmentSession } from "@/lib/supabase"
 import { TreatmentProgress } from "@/components/treatment-progress"
 import { getProducts, type Product } from "@/lib/product-api"
 import { maskPhoneNumber } from "@/lib/utils"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense } from "react"
 import { supabase } from "@/lib/supabase"
 
@@ -63,6 +63,7 @@ const convertProductsFormat = (productsString: string): string => {
 }
 
 function TreatmentPageContent() {
+  const router = useRouter()
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null)
   const [sessions, setSessions] = useState<TreatmentSession[]>([])
@@ -157,10 +158,6 @@ function TreatmentPageContent() {
         if (selected) {
           setSelectedTreatment(selected)
         }
-      } else if (data.length > 0) {
-        // Load first treatment data if no ID provided
-        await loadTreatmentData(data[0].id, false)
-        setSelectedTreatment(data[0])
       }
     } catch (error) {
       toast({
@@ -263,10 +260,13 @@ function TreatmentPageContent() {
       // Set selected treatment immediately for UI responsiveness
       setSelectedTreatment(treatment)
 
+      // Update URL with treatment ID
+      router.push(`/treatment?id=${treatmentId}`)
+
       // Load data (will use cache if available)
       await loadTreatmentData(treatmentId, true)
     },
-    [treatments, loadTreatmentData],
+    [treatments, loadTreatmentData, router],
   )
 
   const handleSaveSession = async () => {
@@ -540,7 +540,18 @@ function TreatmentPageContent() {
         return newCache
       })
 
+      // Update URL with treatment ID if not already present
+      if (!treatmentId) {
+        router.push(`/treatment?id=${selectedTreatment.id}`)
+      }
+
       await loadTreatmentData(selectedTreatment.id, false)
+      
+      // Đảm bảo giữ nguyên treatment đang được chọn
+      const updatedTreatment = treatments.find(t => t.id === selectedTreatment.id)
+      if (updatedTreatment) {
+        setSelectedTreatment(updatedTreatment)
+      }
     }
   }
 
