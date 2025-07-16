@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +12,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { fetchGalleryImages, type GalleryImage } from "@/lib/gallery-api"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
+import { getCustomers, type Customer } from "@/lib/customer-api"
+import { getTreatmentsByCustomer } from "@/lib/treatment-api"
+import type { Treatment } from "@/lib/supabase"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import { Check, ChevronsUpDown } from "lucide-react"
 
 export default function GalleryPage() {
   const [selectedImages, setSelectedImages] = useState<string[]>([])
@@ -19,6 +26,15 @@ export default function GalleryPage() {
   const [images, setImages] = useState<GalleryImage[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [customerTreatments, setCustomerTreatments] = useState<Treatment[]>([])
+  const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null)
+  const [openCustomer, setOpenCustomer] = useState(false)
+  const [openTreatment, setOpenTreatment] = useState(false)
+  const [treatmentSearchTerm, setTreatmentSearchTerm] = useState("")
+  const [searching, setSearching] = useState(false)
 
   // Filters
   const [filters, setFilters] = useState({
@@ -28,9 +44,65 @@ export default function GalleryPage() {
     imageType: [] as string[],
   })
 
+  const filteredTreatments = customerTreatments.filter(treatment => 
+    treatment.treatment_name.toLowerCase().includes(treatmentSearchTerm.toLowerCase())
+  )
+
   useEffect(() => {
     loadImages()
-  }, [])
+  }, [selectedTreatment])
+
+  useEffect(() => {
+    searchCustomers()
+  }, [searchTerm])
+
+  useEffect(() => {
+    if (selectedCustomer) {
+      loadCustomerTreatments()
+    } else {
+      setCustomerTreatments([])
+      setSelectedTreatment(null)
+    }
+  }, [selectedCustomer])
+
+  const searchCustomers = useCallback(async () => {
+    if (searchTerm.length < 2) {
+      setCustomers([])
+      return
+    }
+    try {
+      setSearching(true)
+      const response = await fetch(`/api/customers/search?q=${encodeURIComponent(searchTerm)}`)
+      if (!response.ok) {
+        throw new Error("Lỗi khi tìm kiếm khách hàng")
+      }
+      const data = await response.json()
+      console.log("Search results:", data)
+      setCustomers(data)
+    } catch (error) {
+      console.error("Error searching customers:", error)
+    } finally {
+      setSearching(false)
+    }
+  }, [searchTerm])
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      searchCustomers()
+    }, 2000) // Đợi 2s sau khi người dùng ngừng gõ
+
+    return () => clearTimeout(timeoutId)
+  }, [searchTerm, searchCustomers])
+
+  const loadCustomerTreatments = async () => {
+    if (!selectedCustomer) return
+    try {
+      const data = await getTreatmentsByCustomer(selectedCustomer.id)
+      setCustomerTreatments(data)
+    } catch (error) {
+      console.error("Error loading customer treatments:", error)
+    }
+  }
 
   const loadImages = async () => {
     try {
@@ -38,10 +110,11 @@ export default function GalleryPage() {
       setError(null)
       const imageType = filters.imageType.length > 0 ? filters.imageType.join(",") : undefined
       const data = await fetchGalleryImages({
-        customerName: filters.customerName || undefined,
+        customerId: selectedCustomer?.id,
         fromDate: filters.fromDate || undefined,
         toDate: filters.toDate || undefined,
         imageType,
+        treatment: selectedTreatment?.id || undefined
       })
       setImages(data)
     } catch (error) {
@@ -112,18 +185,136 @@ export default function GalleryPage() {
         <CardContent>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <Label htmlFor="customerSearch" className="text-sm">
-                  Tên khách hàng
-                </Label>
-                <Input
-                  id="customerSearch"
-                  placeholder="Nhập tên..."
-                  className="text-sm"
-                  value={filters.customerName}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, customerName: e.target.value }))}
-                />
+              <div className="space-y-4">
+                <div className="flex flex-col space-y-2">
+                  <Label>Khách hàng</Label>
+                  <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openCustomer}
+                        className="justify-between w-full"
+                      >
+                        <span className="truncate">
+                          {selectedCustomer ? selectedCustomer.name : "Chọn khách hàng..."}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0">
+                      <Command>
+                        <CommandInput 
+                          placeholder="Tìm khách hàng..." 
+                          value={searchTerm}
+                          onValueChange={setSearchTerm}
+                        />
+                        <CommandEmpty>
+                          {searching ? (
+                            <div className="py-6 text-center text-sm">Đang tìm kiếm...</div>
+                          ) : searchTerm.length < 2 ? (
+                            <div className="py-6 text-center text-sm">Nhập ít nhất 2 ký tự để tìm kiếm</div>
+                          ) : (
+                            "Không tìm thấy khách hàng"
+                          )}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {customers.map((customer) => (
+                            <CommandItem
+                              key={customer.id}
+                              value={customer.name + " " + (customer.phone || "")}
+                              onSelect={(currentValue) => {
+                                console.log("Selected customer:", customer)
+                                setSelectedCustomer(customer)
+                                setOpenCustomer(false)
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedCustomer?.id === customer.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {customer.name}
+                              {customer.phone && (
+                                <span className="ml-2 text-muted-foreground">
+                                  ({customer.phone})
+                                </span>
+                              )}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {selectedCustomer && (
+                  <div className="flex flex-col space-y-2">
+                    <Label>Liệu trình</Label>
+                    <Popover open={openTreatment} onOpenChange={setOpenTreatment}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openTreatment}
+                          className="justify-between w-full"
+                        >
+                          <span className="truncate">
+                            {selectedTreatment ? selectedTreatment.treatment_name : "Chọn liệu trình..."}
+                          </span>
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0">
+                        <Command>
+                          <CommandInput 
+                            placeholder="Tìm liệu trình..." 
+                            value={treatmentSearchTerm}
+                            onValueChange={setTreatmentSearchTerm}
+                          />
+                          <CommandEmpty>Không có liệu trình</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              onSelect={() => {
+                                setSelectedTreatment(null)
+                                setOpenTreatment(false)
+                                setTreatmentSearchTerm("")
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", !selectedTreatment ? "opacity-100" : "opacity-0")} />
+                              Tất cả liệu trình
+                            </CommandItem>
+                            {filteredTreatments.map((treatment) => (
+                              <CommandItem
+                                key={treatment.id}
+                                value={treatment.id}
+                                onSelect={() => {
+                                  setSelectedTreatment(treatment)
+                                  setOpenTreatment(false)
+                                  setTreatmentSearchTerm("")
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedTreatment?.id === treatment.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {treatment.treatment_name}
+                                <span className="ml-2 text-muted-foreground">
+                                  ({treatment.current_session}/{treatment.total_sessions})
+                                </span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
               </div>
+
               <div>
                 <Label htmlFor="fromDate" className="text-sm">
                   Từ ngày
@@ -193,9 +384,22 @@ export default function GalleryPage() {
                 <Search className="h-4 w-4 mr-2" />
                 {loading ? "Đang tìm..." : "Tìm kiếm"}
               </Button>
-              <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                <Filter className="h-4 w-4 mr-2" />
-                Bộ lọc nâng cao
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setSelectedCustomer(null)
+                  setSelectedTreatment(null)
+                  setFilters({
+                    customerName: "",
+                    fromDate: "",
+                    toDate: "",
+                    imageType: [],
+                  })
+                }}
+              >
+                Xóa bộ lọc
               </Button>
             </div>
           </div>
@@ -214,7 +418,14 @@ export default function GalleryPage() {
                 Đã chọn {selectedImages.length} / {images.length} ảnh
               </span>
             </div>
-            <div className="text-sm text-muted-foreground">Tổng cộng: {images.length} ảnh</div>
+            <div className="text-sm text-muted-foreground">
+              <span>Hiển thị {images.length} ảnh mới nhất</span>
+              {images.length >= 100 && (
+                <span className="ml-1 text-yellow-600">
+                  (Đã đạt giới hạn 100 ảnh, hãy sử dụng bộ lọc để tìm ảnh cũ hơn)
+                </span>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -288,6 +499,10 @@ export default function GalleryPage() {
                               </p>
                             </div>
                             <div>
+                              <Label className="text-sm font-medium text-muted-foreground">Liệu trình</Label>
+                              <p>{image.treatment_sessions.treatments.treatment_name}</p>
+                            </div>
+                            <div>
                               <Label className="text-sm font-medium text-muted-foreground">Buổi điều trị</Label>
                               <p>Buổi {image.treatment_sessions.session_number}</p>
                             </div>
@@ -326,6 +541,9 @@ export default function GalleryPage() {
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Calendar className="h-3 w-3" />
                       {formatDate(image.treatment_sessions.session_date)}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {image.treatment_sessions.treatments.treatment_name}
                     </div>
                   </div>
                 </CardContent>
@@ -400,6 +618,10 @@ export default function GalleryPage() {
                                 <p className="text-lg font-semibold">
                                   {image.treatment_sessions.treatments.customers.name}
                                 </p>
+                              </div>
+                              <div>
+                                <Label className="text-sm font-medium text-muted-foreground">Liệu trình</Label>
+                                <p>{image.treatment_sessions.treatments.treatment_name}</p>
                               </div>
                               <div>
                                 <Label className="text-sm font-medium text-muted-foreground">Buổi điều trị</Label>

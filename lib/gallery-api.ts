@@ -23,7 +23,7 @@ export interface GalleryImage {
 }
 
 interface GalleryFilters {
-  customerName?: string
+  customerId?: string
   fromDate?: string
   toDate?: string
   treatment?: string
@@ -34,7 +34,7 @@ export async function fetchGalleryImages(filters: GalleryFilters = {}): Promise<
   const supabase = createClientComponentClient()
 
   const params = new URLSearchParams()
-  if (filters.customerName) params.set("customerName", filters.customerName)
+  if (filters.customerId) params.set("customerId", filters.customerId)
   if (filters.fromDate) params.set("fromDate", filters.fromDate)
   if (filters.toDate) params.set("toDate", filters.toDate)
   if (filters.treatment) params.set("treatment", filters.treatment)

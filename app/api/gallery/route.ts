@@ -4,12 +4,12 @@ import { NextResponse } from "next/server"
 
 interface Customer {
   id: string
-  full_name: string
+  name: string
 }
 
 interface Treatment {
   id: string
-  name: string
+  treatment_name: string
   customers: Customer
 }
 
@@ -33,7 +33,7 @@ interface TreatmentImage {
 export async function GET(request: Request) {
   try {
     const searchParams = new URL(request.url).searchParams
-    const customerName = searchParams.get("customerName")
+    const customerId = searchParams.get("customerId")
     const fromDate = searchParams.get("fromDate")
     const toDate = searchParams.get("toDate")
     const treatment = searchParams.get("treatment")
@@ -55,8 +55,8 @@ export async function GET(request: Request) {
       `)
 
     // Áp dụng các bộ lọc
-    if (customerName) {
-      query = query.textSearch('treatment_sessions.treatments.customers.full_name', customerName)
+    if (customerId) {
+      query = query.eq('treatment_sessions.treatments.customer_id', customerId)
     }
 
     if (fromDate) {
@@ -75,6 +75,11 @@ export async function GET(request: Request) {
       const types = imageType.split(',')
       query = query.in('image_type', types)
     }
+
+    // Thêm sắp xếp và giới hạn
+    query = query
+      .order('created_at', { ascending: false })
+      .limit(100)
 
     const { data: images, error } = await query
 
