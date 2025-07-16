@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { useState, useEffect } from "react"
 import { getTotalCustomerDebt, getTotalActiveCustomers } from "@/lib/customer-api"
 import { getStaffStats, getTodayAppointments } from "@/lib/appointment-api"
-import { getTodaySessionsStats, getCompletionRate, getUpcomingEndTreatments } from "@/lib/treatment-api"
+import { getTodaySessionsStats, getCompletionRate, getUpcomingEndTreatments, getTotalRevenue } from "@/lib/treatment-api"
 import { StaffAppointmentsDialog } from "@/components/appointments/staff-appointments-dialog"
 import { useRouter } from "next/navigation"
 
@@ -23,18 +23,20 @@ export default function Dashboard() {
   const [upcomingEndTreatments, setUpcomingEndTreatments] = useState<any[]>([])
   const [staffStats, setStaffStats] = useState<any[]>([])
   const [selectedStaff, setSelectedStaff] = useState<{ id: number; name: string } | null>(null)
+  const [revenue, setRevenue] = useState<{ total: number; percentChange: number }>({ total: 0, percentChange: 0 })
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [debt, customers, sessions, completion, appointments, upcoming, staff] = await Promise.all([
+        const [debt, customers, sessions, completion, appointments, upcoming, staff, revenueData] = await Promise.all([
           getTotalCustomerDebt(),
           getTotalActiveCustomers(),
           getTodaySessionsStats(),
           getCompletionRate(),
           getTodayAppointments(),
           getUpcomingEndTreatments(),
-          getStaffStats()
+          getStaffStats(),
+          getTotalRevenue()
         ])
         setTotalDebt(debt)
         setTotalCustomers(customers)
@@ -43,6 +45,7 @@ export default function Dashboard() {
         setTodayAppointments(appointments)
         setUpcomingEndTreatments(upcoming)
         setStaffStats(staff)
+        setRevenue(revenueData)
       } catch (error) {
         console.error("Error fetching dashboard data:", error)
       }
@@ -126,8 +129,16 @@ export default function Dashboard() {
             <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="p-0 sm:p-6 sm:pt-0">
-            <div className="text-lg sm:text-2xl font-bold">820tr</div>
-            <p className="text-xs text-muted-foreground hidden sm:block">+8% so với tháng trước</p>
+            <div className="text-lg sm:text-2xl font-bold">
+              {new Intl.NumberFormat("vi-VN", {
+                style: "currency",
+                currency: "VND",
+                maximumFractionDigits: 0
+              }).format(revenue.total)}
+            </div>
+            <p className="text-xs text-muted-foreground hidden sm:block">
+              {revenue.percentChange > 0 ? "+" : ""}{revenue.percentChange}% so với tháng trước
+            </p>
           </CardContent>
         </Card>
 

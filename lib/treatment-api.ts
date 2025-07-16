@@ -451,3 +451,69 @@ export async function getUpcomingEndTreatments(): Promise<Array<{
     }
   })
 }
+
+export async function getTotalRevenue() {
+  try {
+    const { data, error } = await supabase
+      .from('treatment_sessions')
+      .select('products_sold, created_at')
+      .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+      .lt('created_at', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString())
+
+    if (error) {
+      console.error('Error fetching revenue:', error)
+      return { total: 0, percentChange: 0 }
+    }
+
+    // Tính tổng doanh thu tháng này
+    const currentMonthRevenue = data.reduce((total, session) => {
+      if (!session.products_sold) return total
+      try {
+        const products = JSON.parse(session.products_sold)
+        return total + products.reduce((sum: number, product: any) => sum + (product.price || 0), 0)
+      } catch (e) {
+        console.error('Error parsing products_sold:', e)
+        return total
+      }
+    }, 0)
+
+    // Lấy doanh thu tháng trước để tính phần trăm thay đổi
+    const lastMonthStart = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString()
+    const lastMonthEnd = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+    
+    const { data: lastMonthData, error: lastMonthError } = await supabase
+      .from('treatment_sessions')
+      .select('products_sold')
+      .gte('created_at', lastMonthStart)
+      .lt('created_at', lastMonthEnd)
+
+    if (lastMonthError) {
+      console.error('Error fetching last month revenue:', lastMonthError)
+      return { total: currentMonthRevenue, percentChange: 0 }
+    }
+
+    const lastMonthRevenue = lastMonthData.reduce((total, session) => {
+      if (!session.products_sold) return total
+      try {
+        const products = JSON.parse(session.products_sold)
+        return total + products.reduce((sum: number, product: any) => sum + (product.price || 0), 0)
+      } catch (e) {
+        console.error('Error parsing products_sold:', e)
+        return total
+      }
+    }, 0)
+
+    // Tính phần trăm thay đổi
+    const percentChange = lastMonthRevenue === 0 
+      ? 100 
+      : Math.round(((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100)
+
+    return { 
+      total: currentMonthRevenue,
+      percentChange
+    }
+  } catch (error) {
+    console.error('Error in getTotalRevenue:', error)
+    return { total: 0, percentChange: 0 }
+  }
+}
