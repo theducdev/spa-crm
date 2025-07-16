@@ -112,6 +112,12 @@ export function AppointmentList({
           <TableRow className="bg-muted/50">
             <TableHead className="w-[100px]">{showCreatedAt ? "Ngày tạo" : "Ngày"}</TableHead>
             <TableHead className="w-[80px]">{showCreatedAt ? "Giờ tạo" : "Giờ"}</TableHead>
+            {showCreatedAt && (
+              <>
+                <TableHead className="w-[100px]">Ngày hẹn</TableHead>
+                <TableHead className="w-[80px]">Giờ hẹn</TableHead>
+              </>
+            )}
             <TableHead className="w-[180px]">Khách hàng</TableHead>
             <TableHead className="w-[120px]">Trạng thái</TableHead>
             <TableHead className="w-[150px]">Nhân viên</TableHead>
@@ -140,6 +146,16 @@ export function AppointmentList({
                   : appointment.appointment_time
                 }
               </TableCell>
+              {showCreatedAt && (
+                <>
+                  <TableCell className="font-medium">
+                    {format(new Date(appointment.appointment_date), "dd/MM/yyyy", { locale: vi })}
+                  </TableCell>
+                  <TableCell>
+                    {appointment.appointment_time}
+                  </TableCell>
+                </>
+              )}
               <TableCell className="font-medium truncate">
                 <div 
                   className="cursor-pointer hover:text-blue-600 hover:underline flex items-center gap-1"
