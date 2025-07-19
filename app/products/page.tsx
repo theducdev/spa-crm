@@ -12,6 +12,7 @@ import { Plus, Save, Search, Edit, X, Trash2, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
+import { useFilterParams } from "@/hooks/use-filter-params"
 import {
   getProducts,
   createProduct,
@@ -25,32 +26,25 @@ export default function ProductsPage() {
   const { toast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState<ProductFilters>({
+  const { filters, updateFilters } = useFilterParams<ProductFilters>({
     status: "active",
     search: "",
+  }, {
+    onFilterChange: loadProducts
   })
   const [showDialog, setShowDialog] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
 
   useEffect(() => {
-    loadProducts()
-  }, [filters])
+    loadProducts(filters)
+  }, [])
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setFilters(prev => ({ ...prev, search: searchTerm }))
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [searchTerm])
-
-  async function loadProducts() {
+  async function loadProducts(currentFilters?: ProductFilters) {
     try {
       setLoading(true)
-      const data = await getProducts(filters)
+      const data = await getProducts(currentFilters || filters)
       setProducts(data)
     } catch (error) {
       console.error(error)
@@ -132,14 +126,14 @@ export default function ProductsPage() {
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Tìm kiếm theo tên..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={filters.search}
+                onChange={(e) => updateFilters({ search: e.target.value })}
                 className="pl-10"
               />
             </div>
             <Select
               value={filters.status}
-              onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
+              onValueChange={(value) => updateFilters({ status: value })}
             >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Trạng thái" />
@@ -171,7 +165,7 @@ export default function ProductsPage() {
                 ) : products.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center">
-                      {searchTerm ? "Không tìm thấy sản phẩm nào" : "Không có sản phẩm nào"}
+                      {filters.search ? "Không tìm thấy sản phẩm nào" : "Không có sản phẩm nào"}
                     </TableCell>
                   </TableRow>
                 ) : (

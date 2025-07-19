@@ -10,11 +10,12 @@ export interface Product {
 }
 
 export interface ProductFilters {
-  status?: string
-  search?: string
+  status: string
+  search: string
+  [key: string]: string
 }
 
-export async function getProducts(filters: ProductFilters = {}) {
+export async function getProducts(filters: ProductFilters = { status: "active", search: "" }) {
   let query = supabase.from("products").select("*")
 
   if (filters.status) {

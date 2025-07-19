@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { useFilterParams } from '@/hooks/use-filter-params'
 
 interface ProductUsage {
   product: string
@@ -47,19 +48,18 @@ interface ProductSoldSession {
   products_sold: ProductUsage[]
 }
 
+interface DateFilters {
+  fromDate: string
+  toDate: string
+  [key: string]: string
+}
+
 export default function ProductsSoldPage() {
   const supabase = createClientComponentClient()
   const [sessions, setSessions] = useState<ProductSoldSession[]>([])
-  const [dateFilters, setDateFilters] = useState({
-    fromDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
-    toDate: format(endOfMonth(new Date()), "yyyy-MM-dd")
-  })
 
-  useEffect(() => {
-    loadSessions()
-  }, [dateFilters])
-
-  const loadSessions = async () => {
+  const loadSessions = async (currentFilters?: DateFilters) => {
+    const filtersToUse = currentFilters || filters
     let query = supabase
       .from('treatment_sessions')
       .select(`
@@ -80,11 +80,11 @@ export default function ProductsSoldPage() {
       .order('created_at', { ascending: false })
 
     // Chỉ thêm điều kiện lọc ngày nếu có giá trị
-    if (dateFilters.fromDate) {
-      query = query.gte('created_at', `${dateFilters.fromDate}T00:00:00`)
+    if (filtersToUse.fromDate) {
+      query = query.gte('created_at', `${filtersToUse.fromDate}T00:00:00`)
     }
-    if (dateFilters.toDate) {
-      query = query.lte('created_at', `${dateFilters.toDate}T23:59:59`)
+    if (filtersToUse.toDate) {
+      query = query.lte('created_at', `${filtersToUse.toDate}T23:59:59`)
     }
 
     const { data: rawSessions } = await query
@@ -102,26 +102,34 @@ export default function ProductsSoldPage() {
     }
   }
 
+  const { filters, updateFilters } = useFilterParams<DateFilters>({
+    fromDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
+    toDate: format(endOfMonth(new Date()), "yyyy-MM-dd")
+  }, {
+    onFilterChange: loadSessions
+  })
+
+  useEffect(() => {
+    loadSessions(filters)
+  }, [])
+
   // Thêm hàm xử lý thay đổi ngày
   const handleDateChange = (field: "fromDate" | "toDate") => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDateFilters(prev => ({
-      ...prev,
-      [field]: e.target.value
-    }))
+    updateFilters({ [field]: e.target.value })
   }
 
   // Thêm hàm xem lịch hẹn hôm nay
   const setToday = () => {
-    const today = new Date()
-    setDateFilters({
-      fromDate: format(today, "yyyy-MM-dd"),
-      toDate: format(today, "yyyy-MM-dd")
+    const today = format(new Date(), "yyyy-MM-dd")
+    updateFilters({
+      fromDate: today,
+      toDate: today
     })
   }
 
   // Thêm hàm xem tất cả lịch hẹn
   const showAll = () => {
-    setDateFilters({
+    updateFilters({
       fromDate: "",
       toDate: ""
     })
@@ -154,7 +162,7 @@ export default function ProductsSoldPage() {
               <Input
                 type="date"
                 id="fromDate"
-                value={dateFilters.fromDate}
+                value={filters.fromDate}
                 onChange={handleDateChange("fromDate")}
               />
             </div>
@@ -163,7 +171,7 @@ export default function ProductsSoldPage() {
               <Input
                 type="date"
                 id="toDate"
-                value={dateFilters.toDate}
+                value={filters.toDate}
                 onChange={handleDateChange("toDate")}
               />
             </div>
@@ -174,7 +182,7 @@ export default function ProductsSoldPage() {
                 variant="outline" 
                 onClick={() => {
                   const today = new Date()
-                  setDateFilters({
+                  updateFilters({
                     fromDate: format(startOfMonth(today), "yyyy-MM-dd"),
                     toDate: format(endOfMonth(today), "yyyy-MM-dd")
                   })

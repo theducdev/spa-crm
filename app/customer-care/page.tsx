@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useToast } from "@/components/ui/use-toast"
 import { useSearchParams } from "next/navigation"
+import { useFilterParams } from "@/hooks/use-filter-params"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,15 +84,19 @@ const formatProductsSold = (productsSoldStr: string | null) => {
   }
 }
 
+interface CustomerCareFilters {
+  search: string
+  priority: string
+  selectedCustomerId: string
+  selectedTreatmentId: string
+  [key: string]: string
+}
+
 export default function CustomerCarePage() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [priorityFilter, setPriorityFilter] = useState<string>("")
-  const [page, setPage] = useState(1)
   const [isSearching, setIsSearching] = useState(false)
+  const [page, setPage] = useState(1)
   const queryClient = useQueryClient()
   const [priorityCustomer, setPriorityCustomer] = useState<Customer | null>(null)
   const [sendingMessage, setSendingMessage] = useState(false)
@@ -99,32 +104,45 @@ export default function CustomerCarePage() {
     success: boolean
     message: string
   } | null>(null)
-  const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null)
-  const [treatmentSessions, setTreatmentSessions] = useState<TreatmentSession[]>([])
   const [editingSession, setEditingSession] = useState<TreatmentSession | null>(null)
   const [editingAfterSalesCare, setEditingAfterSalesCare] = useState("")
 
-  // Debounce search term
-  useEffect(() => {
-    setIsSearching(true)
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm)
-      setIsSearching(false)
-    }, 500)
+  const { filters, updateFilters } = useFilterParams<CustomerCareFilters>({
+    search: "",
+    priority: "",
+    selectedCustomerId: "",
+    selectedTreatmentId: "",
+  })
 
-    return () => {
-      clearTimeout(timer)
-      setIsSearching(false)
-    }
-  }, [searchTerm])
+  // Cập nhật state từ filters
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null)
+  const [treatmentSessions, setTreatmentSessions] = useState<TreatmentSession[]>([])
+
+  // Cập nhật filters khi chọn khách hàng
+  const handleSelectCustomer = (customer: Customer | null) => {
+    setSelectedCustomer(customer)
+    updateFilters({ 
+      selectedCustomerId: customer?.id || "",
+      selectedTreatmentId: "" // Reset treatment khi đổi khách hàng
+    })
+  }
+
+  // Cập nhật filters khi chọn liệu trình
+  const handleSelectTreatment = (treatment: Treatment | null) => {
+    setSelectedTreatment(treatment)
+    updateFilters({ 
+      selectedTreatmentId: treatment?.id || "" 
+    })
+  }
 
   // Fetch danh sách khách hàng
   const { data: customerCareData, isLoading } = useQuery<{ data: Customer[], pagination?: { total: number } }>({
-    queryKey: ["customerCare", page, priorityFilter, debouncedSearch],
+    queryKey: ["customerCare", page, filters.priority, filters.search],
     queryFn: async () => {
-      const customerId = searchParams.get("customerId")
+      const customerId = searchParams.get("customerId") || filters.selectedCustomerId
       if (customerId) {
-        // Nếu có customerId từ URL, chỉ lấy thông tin của khách hàng đó
+        // Nếu có customerId từ URL hoặc filters, chỉ lấy thông tin của khách hàng đó
         const customer = await getCustomer(customerId)
         return {
           data: customer ? [customer] : [],
@@ -135,8 +153,8 @@ export default function CustomerCarePage() {
       const response = await fetchCustomerCare({
         page,
         limit: 100,
-        priority: priorityFilter || undefined,
-        search: debouncedSearch || undefined
+        priority: filters.priority || undefined,
+        search: filters.search || undefined
       })
       return {
         data: response.data,
@@ -145,13 +163,16 @@ export default function CustomerCarePage() {
     }
   })
 
-  // Tự động chọn khách hàng từ URL
+  // Tự động chọn khách hàng từ URL hoặc filters
   useEffect(() => {
-    const customerId = searchParams.get("customerId")
-    if (customerId && customerCareData?.data?.[0]?.id === customerId) {
-      setSelectedCustomer(customerCareData.data[0])
+    const customerId = filters.selectedCustomerId
+    if (customerId && customerCareData?.data) {
+      const customer = customerCareData.data.find(c => c.id === customerId)
+      if (customer) {
+        setSelectedCustomer(customer)
+      }
     }
-  }, [customerCareData, searchParams])
+  }, [customerCareData, filters.selectedCustomerId])
 
   // Fetch tin nhắn khi chọn khách hàng
   const { data: messagesData } = useQuery({
@@ -185,6 +206,17 @@ export default function CustomerCarePage() {
     setSelectedTreatment(null)
     setTreatmentSessions([])
   }, [selectedCustomer])
+
+  // Tự động chọn liệu trình từ filters
+  useEffect(() => {
+    const treatmentId = filters.selectedTreatmentId
+    if (treatmentId && treatments) {
+      const treatment = treatments.find(t => t.id === treatmentId)
+      if (treatment) {
+        setSelectedTreatment(treatment)
+      }
+    }
+  }, [treatments, filters.selectedTreatmentId])
 
   // Mutation để gửi tin nhắn
   const sendMessageMutation = useMutation({
@@ -323,15 +355,19 @@ export default function CustomerCarePage() {
                 <Input 
                   placeholder="Tìm theo tên hoặc số điện thoại..." 
                   className="pl-10" 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={filters.search}
+                  onChange={(e) => {
+                    setIsSearching(true)
+                    updateFilters({ search: e.target.value })
+                    setTimeout(() => setIsSearching(false), 500)
+                  }}
                 />
               </div>
             </div>
             <select 
               className="p-2 border rounded"
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
+              value={filters.priority}
+              onChange={(e) => updateFilters({ priority: e.target.value })}
             >
               <option value="">Tất cả</option>
               <option value="high">Ưu tiên cao</option>
@@ -359,7 +395,7 @@ export default function CustomerCarePage() {
                     className={`p-3 sm:p-4 border rounded-lg cursor-pointer transition-colors ${
                       selectedCustomer?.id === customer.id ? "border-blue-500 bg-blue-50" : "hover:bg-gray-50"
                     }`}
-                    onClick={() => setSelectedCustomer(customer)}
+                    onClick={() => handleSelectCustomer(customer)}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
@@ -462,7 +498,7 @@ export default function CustomerCarePage() {
                       <div key={treatment.id} className="border rounded-lg">
                         <div
                           className="p-3 flex items-center justify-between cursor-pointer hover:bg-gray-50"
-                          onClick={() => setSelectedTreatment(treatment.id === selectedTreatment?.id ? null : treatment)}
+                          onClick={() => handleSelectTreatment(treatment.id === selectedTreatment?.id ? null : treatment)}
                         >
                           <div className="flex-1">
                             <h5 className="font-medium">{treatment.treatment_name}</h5>
