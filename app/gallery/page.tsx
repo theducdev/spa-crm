@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, Suspense } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,9 +20,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { useFilterParams } from "../../hooks/use-filter-params"
-import { Skeleton } from "@/components/ui/skeleton"
 
-function GalleryContent() {
+export default function GalleryPage() {
   const [selectedImages, setSelectedImages] = useState<string[]>([])
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [images, setImages] = useState<GalleryImage[]>([])
@@ -113,10 +112,6 @@ function GalleryContent() {
   }, [selectedTreatment, filters]) // Thêm filters vào dependencies
 
   useEffect(() => {
-    searchCustomers()
-  }, [searchTerm])
-
-  useEffect(() => {
     if (selectedCustomer) {
       loadCustomerTreatments()
     } else {
@@ -126,10 +121,12 @@ function GalleryContent() {
   }, [selectedCustomer])
 
   const searchCustomers = useCallback(async () => {
-    if (searchTerm.length < 2) {
+    if (!searchTerm || searchTerm.length < 2) {
       setCustomers([])
+      setSearching(false)
       return
     }
+
     try {
       setSearching(true)
       const response = await fetch(`/api/customers/search?q=${encodeURIComponent(searchTerm)}`)
@@ -137,14 +134,28 @@ function GalleryContent() {
         throw new Error("Lỗi khi tìm kiếm khách hàng")
       }
       const data = await response.json()
-      console.log("Search results:", data)
-      setCustomers(data)
+      setCustomers(data || [])
+      if (data && data.length > 0) {
+        setOpenCustomer(true)
+      }
     } catch (error) {
       console.error("Error searching customers:", error)
+      setCustomers([])
     } finally {
       setSearching(false)
     }
   }, [searchTerm])
+
+  // Chỉ giữ lại một useEffect với debounce hợp lý
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm) {
+        searchCustomers()
+      }
+    }, 500) // Delay 500ms - cân bằng giữa UX và performance
+
+    return () => clearTimeout(timeoutId)
+  }, [searchTerm, searchCustomers])
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -275,15 +286,18 @@ function GalleryContent() {
                         value={searchTerm}
                         onValueChange={setSearchTerm}
                       />
-                      <CommandEmpty>Không tìm thấy khách hàng</CommandEmpty>
+                      <CommandEmpty>
+                        {searching ? "Đang tìm kiếm..." : "Không tìm thấy khách hàng"}
+                      </CommandEmpty>
                       <CommandGroup>
                         {customers.map((customer) => (
                           <CommandItem
                             key={customer.id}
-                            value={customer.id}
+                            value={customer.name} // Thay đổi từ customer.id sang customer.name
                             onSelect={() => {
                               setSelectedCustomer(customer)
                               setOpenCustomer(false)
+                              setSearchTerm("") // Reset search term sau khi chọn
                             }}
                           >
                             <Check
@@ -293,6 +307,9 @@ function GalleryContent() {
                               )}
                             />
                             {customer.name}
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {customer.phone}
+                            </span>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -676,50 +693,5 @@ function GalleryContent() {
         )
       )}
     </div>
-  )
-}
-
-function GalleryLoading() {
-  return (
-    <div className="container mx-auto py-10">
-      <div className="flex justify-between items-center mb-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="flex gap-2">
-          <Skeleton className="h-10 w-24" />
-          <Skeleton className="h-10 w-24" />
-        </div>
-      </div>
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <Skeleton key={i} className="aspect-square" />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-export default function GalleryPage() {
-  return (
-    <Suspense fallback={<GalleryLoading />}>
-      <GalleryContent />
-    </Suspense>
   )
 }
