@@ -19,6 +19,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown } from "lucide-react"
+import { useFilterParams } from "../../hooks/use-filter-params"
 
 export default function GalleryPage() {
   const [selectedImages, setSelectedImages] = useState<string[]>([])
@@ -36,13 +37,71 @@ export default function GalleryPage() {
   const [treatmentSearchTerm, setTreatmentSearchTerm] = useState("")
   const [searching, setSearching] = useState(false)
 
-  // Filters
-  const [filters, setFilters] = useState({
+  // Cập nhật initialState của useFilterParams để thêm customerId và treatmentId
+  const { filters, updateFilters, resetFilters } = useFilterParams({
     customerName: "",
+    customerId: "",
+    treatmentId: "",
     fromDate: "",
     toDate: "",
     imageType: [] as string[],
   })
+
+  // Theo dõi thay đổi của selectedCustomer để cập nhật URL
+  useEffect(() => {
+    if (selectedCustomer) {
+      updateFilters({
+        customerId: selectedCustomer.id,
+        customerName: selectedCustomer.name
+      })
+    }
+  }, [selectedCustomer])
+
+  // Theo dõi thay đổi của selectedTreatment để cập nhật URL
+  useEffect(() => {
+    if (selectedTreatment) {
+      updateFilters({
+        treatmentId: selectedTreatment.id
+      })
+    }
+  }, [selectedTreatment])
+
+  // Khôi phục selectedCustomer và selectedTreatment từ URL khi load trang
+  useEffect(() => {
+    const loadCustomerFromUrl = async () => {
+      if (filters.customerId && !selectedCustomer) {
+        try {
+          const response = await fetch(`/api/customers/search?q=${filters.customerId}`)
+          if (response.ok) {
+            const customers = await response.json()
+            const customer = customers.find((c: Customer) => c.id === filters.customerId)
+            if (customer) {
+              setSelectedCustomer(customer)
+            }
+          }
+        } catch (error) {
+          console.error("Error loading customer from URL:", error)
+        }
+      }
+    }
+
+    const loadTreatmentFromUrl = async () => {
+      if (filters.treatmentId && filters.customerId && !selectedTreatment) {
+        try {
+          const data = await getTreatmentsByCustomer(filters.customerId)
+          const treatment = data.find(t => t.id === filters.treatmentId)
+          if (treatment) {
+            setSelectedTreatment(treatment)
+          }
+        } catch (error) {
+          console.error("Error loading treatment from URL:", error)
+        }
+      }
+    }
+
+    loadCustomerFromUrl()
+    loadTreatmentFromUrl()
+  }, [filters.customerId, filters.treatmentId])
 
   const filteredTreatments = customerTreatments.filter(treatment => 
     treatment.treatment_name.toLowerCase().includes(treatmentSearchTerm.toLowerCase())
@@ -50,7 +109,7 @@ export default function GalleryPage() {
 
   useEffect(() => {
     loadImages()
-  }, [selectedTreatment])
+  }, [selectedTreatment, filters]) // Thêm filters vào dependencies
 
   useEffect(() => {
     searchCustomers()
@@ -104,17 +163,18 @@ export default function GalleryPage() {
     }
   }
 
+  // Cập nhật hàm loadImages để sử dụng customerId từ filters
   const loadImages = async () => {
     try {
       setLoading(true)
       setError(null)
       const imageType = filters.imageType.length > 0 ? filters.imageType.join(",") : undefined
       const data = await fetchGalleryImages({
-        customerId: selectedCustomer?.id,
+        customerId: filters.customerId || undefined,
         fromDate: filters.fromDate || undefined,
         toDate: filters.toDate || undefined,
         imageType,
-        treatment: selectedTreatment?.id || undefined
+        treatment: filters.treatmentId || undefined
       })
       setImages(data)
     } catch (error) {
@@ -133,8 +193,16 @@ export default function GalleryPage() {
     setSelectedImages(selectedImages.length === images.length ? [] : images.map((img) => img.id))
   }
 
+  // Cập nhật hàm xử lý filter
   const handleSearch = () => {
     loadImages()
+  }
+
+  // Cập nhật hàm xóa filter
+  const handleClearFilters = () => {
+    setSelectedCustomer(null)
+    setSelectedTreatment(null)
+    resetFilters()
   }
 
   const formatDate = (date: string) => {
@@ -184,201 +252,166 @@ export default function GalleryPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-4">
-                <div className="flex flex-col space-y-2">
-                  <Label>Khách hàng</Label>
-                  <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={openCustomer}
-                        className="justify-between w-full"
-                      >
-                        <span className="truncate">
-                          {selectedCustomer ? selectedCustomer.name : "Chọn khách hàng..."}
-                        </span>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[300px] p-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Khách hàng</Label>
+                <Popover open={openCustomer} onOpenChange={setOpenCustomer}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openCustomer}
+                      className="w-full justify-between"
+                    >
+                      {selectedCustomer?.name || filters.customerName || "Chọn khách hàng"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput
+                        placeholder="Tìm khách hàng..."
+                        value={searchTerm}
+                        onValueChange={setSearchTerm}
+                      />
+                      <CommandEmpty>Không tìm thấy khách hàng</CommandEmpty>
+                      <CommandGroup>
+                        {customers.map((customer) => (
+                          <CommandItem
+                            key={customer.id}
+                            value={customer.id}
+                            onSelect={() => {
+                              setSelectedCustomer(customer)
+                              setOpenCustomer(false)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedCustomer?.id === customer.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {customer.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Liệu trình</Label>
+                <Popover open={openTreatment} onOpenChange={setOpenTreatment}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openTreatment}
+                      className="w-full justify-between"
+                      disabled={!selectedCustomer && !filters.treatmentId}
+                    >
+                      {selectedTreatment?.treatment_name || filters.treatmentId ? 
+                        (selectedTreatment?.treatment_name || "Đang tải...") : 
+                        (!selectedCustomer ? "Vui lòng chọn khách hàng trước" : "Chọn liệu trình")}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  {(selectedCustomer || filters.treatmentId) && (
+                    <PopoverContent className="w-full p-0">
                       <Command>
-                        <CommandInput 
-                          placeholder="Tìm khách hàng..." 
-                          value={searchTerm}
-                          onValueChange={setSearchTerm}
+                        <CommandInput
+                          placeholder="Tìm liệu trình..."
+                          value={treatmentSearchTerm}
+                          onValueChange={setTreatmentSearchTerm}
                         />
-                        <CommandEmpty>
-                          {searching ? (
-                            <div className="py-6 text-center text-sm">Đang tìm kiếm...</div>
-                          ) : searchTerm.length < 2 ? (
-                            <div className="py-6 text-center text-sm">Nhập ít nhất 2 ký tự để tìm kiếm</div>
-                          ) : (
-                            "Không tìm thấy khách hàng"
-                          )}
-                        </CommandEmpty>
+                        <CommandEmpty>Không tìm thấy liệu trình</CommandEmpty>
                         <CommandGroup>
-                          {customers.map((customer) => (
+                          {filteredTreatments.map((treatment) => (
                             <CommandItem
-                              key={customer.id}
-                              value={customer.name + " " + (customer.phone || "")}
-                              onSelect={(currentValue) => {
-                                console.log("Selected customer:", customer)
-                                setSelectedCustomer(customer)
-                                setOpenCustomer(false)
+                              key={treatment.id}
+                              value={treatment.id}
+                              onSelect={() => {
+                                setSelectedTreatment(treatment)
+                                setOpenTreatment(false)
                               }}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  selectedCustomer?.id === customer.id ? "opacity-100" : "opacity-0"
+                                  selectedTreatment?.id === treatment.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              {customer.name}
-                              {customer.phone && (
-                                <span className="ml-2 text-muted-foreground">
-                                  ({customer.phone})
-                                </span>
-                              )}
+                              {treatment.treatment_name}
                             </CommandItem>
                           ))}
                         </CommandGroup>
                       </Command>
                     </PopoverContent>
-                  </Popover>
-                </div>
-
-                {selectedCustomer && (
-                  <div className="flex flex-col space-y-2">
-                    <Label>Liệu trình</Label>
-                    <Popover open={openTreatment} onOpenChange={setOpenTreatment}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={openTreatment}
-                          className="justify-between w-full"
-                        >
-                          <span className="truncate">
-                            {selectedTreatment ? selectedTreatment.treatment_name : "Chọn liệu trình..."}
-                          </span>
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0">
-                        <Command>
-                          <CommandInput 
-                            placeholder="Tìm liệu trình..." 
-                            value={treatmentSearchTerm}
-                            onValueChange={setTreatmentSearchTerm}
-                          />
-                          <CommandEmpty>Không có liệu trình</CommandEmpty>
-                          <CommandGroup>
-                            <CommandItem
-                              onSelect={() => {
-                                setSelectedTreatment(null)
-                                setOpenTreatment(false)
-                                setTreatmentSearchTerm("")
-                              }}
-                            >
-                              <Check className={cn("mr-2 h-4 w-4", !selectedTreatment ? "opacity-100" : "opacity-0")} />
-                              Tất cả liệu trình
-                            </CommandItem>
-                            {filteredTreatments.map((treatment) => (
-                              <CommandItem
-                                key={treatment.id}
-                                value={treatment.id}
-                                onSelect={() => {
-                                  setSelectedTreatment(treatment)
-                                  setOpenTreatment(false)
-                                  setTreatmentSearchTerm("")
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedTreatment?.id === treatment.id ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {treatment.treatment_name}
-                                <span className="ml-2 text-muted-foreground">
-                                  ({treatment.current_session}/{treatment.total_sessions})
-                                </span>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                )}
+                  )}
+                </Popover>
               </div>
+            </div>
 
-              <div>
-                <Label htmlFor="fromDate" className="text-sm">
-                  Từ ngày
-                </Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Từ ngày</Label>
                 <Input
-                  id="fromDate"
                   type="date"
-                  className="text-sm"
                   value={filters.fromDate}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, fromDate: e.target.value }))}
+                  onChange={(e) => updateFilters({ fromDate: e.target.value })}
+                  className="w-full"
                 />
               </div>
-              <div>
-                <Label htmlFor="toDate" className="text-sm">
-                  Đến ngày
-                </Label>
+              <div className="space-y-2">
+                <Label>Đến ngày</Label>
                 <Input
-                  id="toDate"
                   type="date"
-                  className="text-sm"
                   value={filters.toDate}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, toDate: e.target.value }))}
+                  onChange={(e) => updateFilters({ toDate: e.target.value })}
+                  className="w-full"
                 />
               </div>
-              <div>
-                <Label className="text-sm">Loại ảnh</Label>
-                <div className="flex items-center space-x-4 mt-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="before"
-                      checked={filters.imageType.includes("before")}
-                      onCheckedChange={(checked) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          imageType: checked
-                            ? [...prev.imageType, "before"]
-                            : prev.imageType.filter((t) => t !== "before"),
-                        }))
-                      }
-                    />
-                    <Label htmlFor="before" className="text-sm">
-                      Trước
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="after"
-                      checked={filters.imageType.includes("after")}
-                      onCheckedChange={(checked) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          imageType: checked
-                            ? [...prev.imageType, "after"]
-                            : prev.imageType.filter((t) => t !== "after"),
-                        }))
-                      }
-                    />
-                    <Label htmlFor="after" className="text-sm">
-                      Sau
-                    </Label>
-                  </div>
+            </div>
+
+            <div>
+              <Label>Loại ảnh</Label>
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="before"
+                    checked={filters.imageType.includes("before")}
+                    onCheckedChange={(checked) =>
+                      updateFilters({
+                        imageType: checked
+                          ? [...filters.imageType, "before"]
+                          : filters.imageType.filter((type: string) => type !== "before"),
+                      })
+                    }
+                  />
+                  <Label htmlFor="before" className="text-sm">
+                    Trước
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="after"
+                    checked={filters.imageType.includes("after")}
+                    onCheckedChange={(checked) =>
+                      updateFilters({
+                        imageType: checked
+                          ? [...filters.imageType, "after"]
+                          : filters.imageType.filter((type: string) => type !== "after"),
+                      })
+                    }
+                  />
+                  <Label htmlFor="after" className="text-sm">
+                    Sau
+                  </Label>
                 </div>
               </div>
             </div>
+
             <div className="flex flex-col sm:flex-row gap-2">
               <Button size="sm" className="w-full sm:w-auto" onClick={handleSearch} disabled={loading}>
                 <Search className="h-4 w-4 mr-2" />
@@ -388,16 +421,7 @@ export default function GalleryPage() {
                 variant="outline" 
                 size="sm" 
                 className="w-full sm:w-auto"
-                onClick={() => {
-                  setSelectedCustomer(null)
-                  setSelectedTreatment(null)
-                  setFilters({
-                    customerName: "",
-                    fromDate: "",
-                    toDate: "",
-                    imageType: [],
-                  })
-                }}
+                onClick={handleClearFilters}
               >
                 Xóa bộ lọc
               </Button>
