@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,8 +28,9 @@ import { cn } from "@/lib/utils"
 import { Textarea } from "@/components/ui/textarea"
 import { useRouter } from "next/navigation"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
+import { Skeleton } from "@/components/ui/skeleton"
 
-export default function TreatmentsPage() {
+function TreatmentsContent() {
   const { toast } = useToast()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -771,5 +772,41 @@ export default function TreatmentsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+function TreatmentsLoading() {
+  return (
+    <div className="container mx-auto py-10">
+      <div className="flex justify-between items-center mb-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-32" />
+      </div>
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <div className="flex gap-4">
+              <Skeleton className="h-10 w-1/3" />
+              <Skeleton className="h-10 w-1/3" />
+              <Skeleton className="h-10 w-1/3" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <div className="space-y-4">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+      </div>
+    </div>
+  )
+}
+
+export default function TreatmentsPage() {
+  return (
+    <Suspense fallback={<TreatmentsLoading />}>
+      <TreatmentsContent />
+    </Suspense>
   )
 } 

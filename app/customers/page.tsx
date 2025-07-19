@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, memo } from "react"
+import { useState, useEffect, useCallback, useRef, memo, Suspense } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils"
 import { getCustomerTags, type CustomerTag } from "@/lib/customer-tag-api"
 import { SearchableCombobox } from "@/components/ui/searchable-combobox"
 import { useFilterParams } from "@/hooks/use-filter-params"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface CustomerFormData {
   name: string
@@ -109,7 +110,7 @@ const DebtInput = memo(({
 })
 DebtInput.displayName = "DebtInput"
 
-export default function CustomersPage() {
+function CustomersContent() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -1528,5 +1529,45 @@ export default function CustomersPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+function CustomersLoading() {
+  return (
+    <div className="container mx-auto py-10">
+      <div className="flex justify-between items-center mb-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-32" />
+      </div>
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-24" />
+              <Skeleton className="h-10 w-24" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <div className="space-y-4">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    </div>
+  )
+}
+
+export default function CustomersPage() {
+  return (
+    <Suspense fallback={<CustomersLoading />}>
+      <CustomersContent />
+    </Suspense>
   )
 }

@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { useFilterParams } from '@/hooks/use-filter-params'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface ProductUsage {
   product: string
@@ -227,17 +228,46 @@ function ProductsSoldContent() {
   )
 }
 
+function ProductsSoldLoading() {
+  return (
+    <div className="container mx-auto py-10">
+      <div className="flex justify-between items-center mb-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-32" />
+      </div>
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="flex items-end gap-2">
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <div className="space-y-4">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    </div>
+  )
+}
+
 export default function ProductsSoldPage() {
   return (
-    <Suspense fallback={
-      <div className="container mx-auto py-10">
-        <Card>
-          <CardContent>
-            <p className="text-center text-muted-foreground">Đang tải...</p>
-          </CardContent>
-        </Card>
-      </div>
-    }>
+    <Suspense fallback={<ProductsSoldLoading />}>
       <ProductsSoldContent />
     </Suspense>
   )

@@ -43,6 +43,7 @@ import { vi } from "date-fns/locale"
 import { formatCurrency } from "@/lib/utils"
 import { getTreatmentsByCustomer, getTreatmentSessions, upsertTreatmentSession } from "@/lib/treatment-api"
 import type { Treatment, TreatmentSession } from "@/lib/supabase"
+import { Skeleton } from "@/components/ui/skeleton"
 
 // Hàm format sản phẩm sử dụng
 const formatProductsUsed = (productsUsedStr: string | null) => {
@@ -731,17 +732,59 @@ function CustomerCareContent() {
   )
 }
 
+function CustomerCareLoading() {
+  return (
+    <div className="container mx-auto py-10">
+      <div className="flex justify-between items-center mb-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-24" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="pt-6">
+              <Skeleton className="h-10 w-full mb-4" />
+              <div className="space-y-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="md:col-span-2 space-y-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-32 w-full" />
+                <div className="flex justify-end">
+                  <Skeleton className="h-10 w-24" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function CustomerCarePage() {
   return (
-    <Suspense fallback={
-      <div className="container mx-auto py-10">
-        <Card>
-          <CardContent>
-            <p className="text-center text-muted-foreground">Đang tải...</p>
-          </CardContent>
-        </Card>
-      </div>
-    }>
+    <Suspense fallback={<CustomerCareLoading />}>
       <CustomerCareContent />
     </Suspense>
   )
