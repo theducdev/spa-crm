@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,7 @@ import {
   type ProductFilters,
 } from "@/lib/product-api"
 
-export default function ProductsPage() {
+function ProductsContent() {
   const { toast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -304,5 +304,21 @@ export default function ProductsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-10">
+        <Card>
+          <CardContent>
+            <p className="text-center text-muted-foreground">Đang tải...</p>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <ProductsContent />
+    </Suspense>
   )
 } 

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect, Suspense } from "react"
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
@@ -10,7 +11,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -54,7 +54,7 @@ interface DateFilters {
   [key: string]: string
 }
 
-export default function ProductsSoldPage() {
+function ProductsSoldContent() {
   const supabase = createClientComponentClient()
   const [sessions, setSessions] = useState<ProductSoldSession[]>([])
 
@@ -224,5 +224,21 @@ export default function ProductsSoldPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function ProductsSoldPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-10">
+        <Card>
+          <CardContent>
+            <p className="text-center text-muted-foreground">Đang tải...</p>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <ProductsSoldContent />
+    </Suspense>
   )
 } 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -92,7 +92,7 @@ interface CustomerCareFilters {
   [key: string]: string
 }
 
-export default function CustomerCarePage() {
+function CustomerCareContent() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const [isSearching, setIsSearching] = useState(false)
@@ -358,7 +358,13 @@ export default function CustomerCarePage() {
                   value={filters.search}
                   onChange={(e) => {
                     setIsSearching(true)
-                    updateFilters({ search: e.target.value })
+                    // Reset các param khác khi search thay đổi
+                    updateFilters({ 
+                      search: e.target.value,
+                      selectedCustomerId: "",
+                      selectedTreatmentId: "",
+                      priority: filters.priority // Giữ nguyên filter priority
+                    })
                     setTimeout(() => setIsSearching(false), 500)
                   }}
                 />
@@ -367,7 +373,12 @@ export default function CustomerCarePage() {
             <select 
               className="p-2 border rounded"
               value={filters.priority}
-              onChange={(e) => updateFilters({ priority: e.target.value })}
+              onChange={(e) => updateFilters({ 
+                priority: e.target.value,
+                selectedCustomerId: "",
+                selectedTreatmentId: "",
+                search: filters.search // Giữ nguyên search term
+              })}
             >
               <option value="">Tất cả</option>
               <option value="high">Ưu tiên cao</option>
@@ -717,5 +728,21 @@ export default function CustomerCarePage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function CustomerCarePage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto py-10">
+        <Card>
+          <CardContent>
+            <p className="text-center text-muted-foreground">Đang tải...</p>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <CustomerCareContent />
+    </Suspense>
   )
 }
