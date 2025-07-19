@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, Suspense } from "react"
 import { getAppointments, deleteAppointment, Appointment } from "@/lib/appointment-api"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
@@ -13,6 +13,7 @@ import { addDays, format, startOfMonth, endOfMonth, startOfDay, endOfDay } from 
 import { vi } from "date-fns/locale"
 import { Switch } from "@/components/ui/switch"
 import { useFilterParams } from "@/hooks/use-filter-params"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface AppointmentWithCustomer extends Appointment {
   customers?: {
@@ -26,7 +27,7 @@ interface AppointmentWithCustomer extends Appointment {
   }
 }
 
-export default function AppointmentsPage() {
+function AppointmentsContent() {
   const [appointments, setAppointments] = useState<AppointmentWithCustomer[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>()
@@ -182,5 +183,50 @@ export default function AppointmentsPage() {
         onSuccess={loadAppointments}
       />
     </div>
+  )
+}
+
+function AppointmentsLoading() {
+  return (
+    <div className="container mx-auto py-10">
+      <div className="flex justify-between items-center mb-6">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-32" />
+      </div>
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <div className="flex items-end gap-2">
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-24" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <div className="space-y-4">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+      </div>
+    </div>
+  )
+}
+
+export default function AppointmentsPage() {
+  return (
+    <Suspense fallback={<AppointmentsLoading />}>
+      <AppointmentsContent />
+    </Suspense>
   )
 } 
