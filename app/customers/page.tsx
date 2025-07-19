@@ -47,6 +47,7 @@ import {
 import { cn } from "@/lib/utils"
 import { getCustomerTags, type CustomerTag } from "@/lib/customer-tag-api"
 import { SearchableCombobox } from "@/components/ui/searchable-combobox"
+import { useFilterParams } from "@/hooks/use-filter-params"
 
 interface CustomerFormData {
   name: string
@@ -62,6 +63,7 @@ interface CustomerFormData {
 }
 
 interface CustomerFilters {
+  [key: string]: string | string[] | number | boolean | null | undefined
   search: string
   status: "all" | "active" | "inactive" | "pending"
   tag_id: string | null
@@ -123,12 +125,17 @@ export default function CustomersPage() {
   const [isViewingCustomer, setIsViewingCustomer] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
 
-  // Filter states
-  const [filters, setFilters] = useState<CustomerFilters>({
+  // Replace filters state with useFilterParams
+  const { filters, updateFilters } = useFilterParams<CustomerFilters>({
     search: "",
     status: "all",
     tag_id: null
   })
+
+  // Sync searchTerm with URL search param
+  useEffect(() => {
+    setSearchTerm(filters.search)
+  }, [filters.search])
 
   // Search state
   const [searchTerm, setSearchTerm] = useState("")
@@ -203,21 +210,24 @@ export default function CustomersPage() {
 
   const [tags, setTags] = useState<CustomerTag[]>([])
 
-  // Load customers on mount and when filters change
+  // Load initial data
   useEffect(() => {
-    loadCustomers()
     loadTreatmentPackages()
     loadTags()
-  }, [filters])
+  }, [])
 
   // Handle search with debounce
   useEffect(() => {
     const timer = setTimeout(() => {
-      setFilters(prev => ({ ...prev, search: searchTerm }))
-    }, 500) // Tăng debounce time lên 500ms
-
+      updateFilters({ search: searchTerm })
+    }, 1000)
     return () => clearTimeout(timer)
-  }, [searchTerm])
+  }, [searchTerm, updateFilters])
+
+  // Load customers when filters change
+  useEffect(() => {
+    loadCustomers()
+  }, [filters.search, filters.status, filters.tag_id])
 
   const loadCustomers = async () => {
     try {
@@ -266,18 +276,20 @@ export default function CustomersPage() {
     }
   }
 
+  // Handle search with debounce
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
     setIsSearching(true)
-    setSearchTerm(e.target.value)
+    setSearchTerm(value)
   }
 
   const handleStatusFilter = useCallback((status: "all" | "active" | "inactive" | "pending") => {
-    setFilters((prev) => ({ ...prev, status }))
-  }, [])
+    updateFilters({ status })
+  }, [updateFilters])
 
   const handleTagFilter = useCallback((tag_id: string | null) => {
-    setFilters((prev) => ({ ...prev, tag_id }))
-  }, [])
+    updateFilters({ tag_id })
+  }, [updateFilters])
 
   // Thêm vào phần function declarations
   const handleNewCustomerImageUpload = (file: File) => {
