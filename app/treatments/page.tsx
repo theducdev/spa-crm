@@ -16,6 +16,7 @@ import { getTreatmentsByCustomer, createTreatment, updateTreatment, deleteTreatm
 import type { Treatment } from "@/lib/supabase"
 import { getTreatmentPackages, type TreatmentPackage } from "@/lib/treatment-package-api"
 import { maskPhoneNumber } from "@/lib/utils"
+import { useFilterParams } from "@/hooks/use-filter-params"
 import {
   Command,
   CommandEmpty,
@@ -33,10 +34,13 @@ export default function TreatmentsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [treatmentPackages, setTreatmentPackages] = useState<TreatmentPackage[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
+  const { filters: searchFilters, updateFilters } = useFilterParams({
+    search: "",
+    selectedCustomerId: ""
+  })
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [showNewTreatmentDialog, setShowNewTreatmentDialog] = useState(false)
   const [showEditTreatmentDialog, setShowEditTreatmentDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -63,7 +67,19 @@ export default function TreatmentsPage() {
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [searchTerm])
+  }, [searchFilters.search])
+
+  // Thêm effect để theo dõi selectedCustomerId từ URL
+  useEffect(() => {
+    if (searchFilters.selectedCustomerId && customers.length > 0) {
+      const customer = customers.find(c => c.id === searchFilters.selectedCustomerId)
+      if (customer) {
+        setSelectedCustomer(customer)
+      }
+    } else if (!searchFilters.selectedCustomerId) {
+      setSelectedCustomer(null)
+    }
+  }, [searchFilters.selectedCustomerId, customers])
 
   useEffect(() => {
     if (selectedCustomer) {
@@ -77,8 +93,8 @@ export default function TreatmentsPage() {
       const filters: CustomerFilters = {
         status: "active",
       }
-      if (searchTerm) {
-        filters.search = searchTerm
+      if (searchFilters.search) {
+        filters.search = searchFilters.search
       }
       const data = await getCustomers(filters)
       setCustomers(data)
@@ -255,8 +271,17 @@ export default function TreatmentsPage() {
   }
 
   const handleCustomerClick = (customer: Customer) => {
-    setSelectedCustomer(customer)
+    updateFilters({ selectedCustomerId: customer.id })
     setShowCustomerInfoDialog(true)
+  }
+
+  const handleCloseCustomerDialog = () => {
+    setShowCustomerInfoDialog(false)
+  }
+
+  const handleClearCustomerSelection = () => {
+    updateFilters({ selectedCustomerId: "" })
+    setSelectedCustomer(null)
   }
 
   return (
@@ -280,8 +305,8 @@ export default function TreatmentsPage() {
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Tìm theo tên hoặc số điện thoại..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={searchFilters.search}
+                  onChange={(e) => updateFilters({ search: e.target.value })}
                   className="pl-10"
                 />
               </div>
@@ -293,7 +318,7 @@ export default function TreatmentsPage() {
                   </div>
                 ) : customers.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
-                    {searchTerm ? "Không tìm thấy khách hàng" : "Chưa có khách hàng nào"}
+                    {searchFilters.search ? "Không tìm thấy khách hàng" : "Chưa có khách hàng nào"}
                   </div>
                 ) : (
                   <div className="divide-y">
@@ -509,7 +534,7 @@ export default function TreatmentsPage() {
                     placeholder="Tìm gói điều trị..." 
                     className="h-9"
                     value={treatmentSearchValue}
-                    onValueChange={setTreatmentSearchValue}
+                    onValueChange={(value) => setTreatmentSearchValue(value)}
                   />
                   <CommandEmpty>Không tìm thấy gói điều trị</CommandEmpty>
                   <CommandGroup className="max-h-[200px] overflow-auto">
@@ -519,7 +544,6 @@ export default function TreatmentsPage() {
                         value={pkg.name}
                         onSelect={() => {
                           setFormData(prev => ({ ...prev, treatment_package_id: pkg.id }))
-                          setTreatmentSearchValue(pkg.name)
                         }}
                         className="flex items-center gap-2"
                       >
@@ -616,7 +640,12 @@ export default function TreatmentsPage() {
       </Dialog>
 
       {/* Customer Info Dialog */}
-      <Dialog open={showCustomerInfoDialog} onOpenChange={setShowCustomerInfoDialog}>
+      <Dialog 
+        open={showCustomerInfoDialog} 
+        onOpenChange={(open) => {
+          if (!open) handleCloseCustomerDialog()
+        }}
+      >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-4 md:p-6">
           <DialogHeader className="mb-4 pr-6">
             <DialogTitle className="flex items-center gap-2">
