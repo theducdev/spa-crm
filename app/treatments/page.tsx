@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense, useRef } from "react"
+import { useState, useEffect, Suspense, useRef, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,7 @@ import { Plus, Search, User, Calendar, Loader2, Edit, Trash2, AlertCircle, Check
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
-import { getCustomers, type Customer, type CustomerFilters } from "@/lib/customer-api"
+import { getCustomers, type Customer, type CustomerFilters, getCustomer } from "@/lib/customer-api"
 import { getTreatmentsByCustomer, createTreatment, updateTreatment, deleteTreatment, updateTreatmentCurrentSession } from "@/lib/treatment-api"
 import type { Treatment } from "@/lib/supabase"
 import { getTreatmentPackages, type TreatmentPackage } from "@/lib/treatment-package-api"
@@ -92,17 +92,30 @@ function TreatmentsContent() {
     return () => clearTimeout(timer)
   }, [searchFilters.search])
 
+  // Thêm function để load customer cụ thể
+  const loadSpecificCustomer = useCallback(async (customerId: string) => {
+    try {
+      const customer = await getCustomer(customerId)
+      setSelectedCustomer(customer)
+    } catch (error) {
+      console.error('Error loading specific customer:', error)
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải thông tin khách hàng",
+        variant: "destructive",
+      })
+    }
+  }, [toast])
+
   // Thêm effect để theo dõi selectedCustomerId từ URL
   useEffect(() => {
-    if (searchFilters.selectedCustomerId && customers && customers.length > 0) {
-      const customer = customers.find(c => c.id === searchFilters.selectedCustomerId)
-      if (customer) {
-        setSelectedCustomer(customer)
-      }
-    } else if (!searchFilters.selectedCustomerId) {
+    if (searchFilters.selectedCustomerId) {
+      // Nếu có selectedCustomerId, load customer cụ thể đó
+      loadSpecificCustomer(searchFilters.selectedCustomerId)
+    } else {
       setSelectedCustomer(null)
     }
-  }, [searchFilters.selectedCustomerId, customers])
+  }, [searchFilters.selectedCustomerId, loadSpecificCustomer])
 
   useEffect(() => {
     if (selectedCustomer) {
