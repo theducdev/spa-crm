@@ -371,6 +371,19 @@ function TreatmentsContent() {
                         )}>
                           Nợ: {formatDebt(customer.debt)}
                         </div>
+                        {customer.tag && (
+                          <div className="mt-1">
+                            <Badge 
+                              variant="outline" 
+                              style={{
+                                borderColor: customer.tag.color,
+                                color: customer.tag.color
+                              }}
+                            >
+                              {customer.tag.name}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -744,6 +757,19 @@ function TreatmentsContent() {
                     )}>
                       Nợ: {formatDebt(selectedCustomer.debt)}
                     </div>
+                    {selectedCustomer.tag && (
+                      <div className="mt-1">
+                        <Badge 
+                          variant="outline" 
+                          style={{
+                            borderColor: selectedCustomer.tag.color,
+                            color: selectedCustomer.tag.color
+                          }}
+                        >
+                          {selectedCustomer.tag.name}
+                        </Badge>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="treatment-count">Số liệu trình</Label>
