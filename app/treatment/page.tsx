@@ -764,6 +764,7 @@ function TreatmentPageContent() {
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Khách hàng</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Liệu trình</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Ngày điều trị</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Nhân viên tạo</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[200px]">Sản phẩm đã bán</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[200px]">Ghi chú</th>
                 </tr>
@@ -771,7 +772,7 @@ function TreatmentPageContent() {
               <tbody className="[&_tr:last-child]:border-0">
                 {recentSessions.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
                       {loadingSessions ? (
                         <div className="flex items-center justify-center gap-2">
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -835,6 +836,11 @@ function TreatmentPageContent() {
                     </td>
                     <td className="p-4 align-top whitespace-nowrap">
                       {session.session_date ? new Date(session.session_date).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                    </td>
+                    <td className="p-4 align-top">
+                      <div className="text-sm">
+                        {session.creator?.full_name || 'Không có thông tin'}
+                      </div>
                     </td>
                     <td className="p-4 align-top">
                       {session.products_sold && (

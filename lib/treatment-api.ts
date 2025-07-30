@@ -617,6 +617,10 @@ export async function getRecentTreatmentSessions(
       products_sold,
       notes,
       created_at,
+      creator:users(
+        id,
+        full_name
+      ),
       treatment:treatments(
         id,
         treatment_name,
