@@ -1,15 +1,22 @@
 import { supabase } from "./supabase"
+import { getDefaultStatusId } from "./appointment-status-api"
 
 export interface Appointment {
   id: string
   customer_id: string
   appointment_date: string
   appointment_time: string
-  status: "pending" | "confirmed" | "cancelled"
+  status_id: string
   notes?: string
   created_by: number
   created_at: string
   updated_at: string
+  appointment_status?: {
+    id: string
+    code: string
+    name: string
+    color: string
+  }
 }
 
 // Lấy danh sách lịch hẹn
@@ -22,6 +29,12 @@ export async function getAppointments(filters?: {
     .from("appointments")
     .select(`
       *,
+      appointment_status:appointment_statuses!fk_appointments_status_id (
+        id,
+        code,
+        name,
+        color
+      ),
       customers (
         id,
         name,
@@ -79,6 +92,12 @@ export async function getAppointment(id: string) {
     .from("appointments")
     .select(`
       *,
+      appointment_status:appointment_statuses!fk_appointments_status_id (
+        id,
+        code,
+        name,
+        color
+      ),
       customers (
         id,
         name
@@ -102,7 +121,7 @@ export async function createAppointment(appointmentData: Partial<Appointment>) {
       customer_id: appointmentData.customer_id,
       appointment_date: appointmentData.appointment_date,
       appointment_time: appointmentData.appointment_time,
-      status: appointmentData.status || "pending",
+      status_id: appointmentData.status_id || await getDefaultStatusId(),
       notes: appointmentData.notes,
       created_by: appointmentData.created_by
     }])
@@ -124,7 +143,7 @@ export async function updateAppointment(id: string, appointmentData: Partial<App
       customer_id: appointmentData.customer_id,
       appointment_date: appointmentData.appointment_date,
       appointment_time: appointmentData.appointment_time,
-      status: appointmentData.status,
+      status_id: appointmentData.status_id,
       notes: appointmentData.notes
     })
     .eq("id", id)
@@ -201,6 +220,12 @@ export async function getStaffAppointments(staffId: number) {
     .from('appointments')
     .select(`
       *,
+      appointment_status:appointment_statuses!fk_appointments_status_id (
+        id,
+        code,
+        name,
+        color
+      ),
       customers (
         id,
         name,
@@ -231,6 +256,12 @@ export async function getTodayAppointments() {
     .from("appointments")
     .select(`
       *,
+      appointment_status:appointment_statuses!fk_appointments_status_id (
+        id,
+        code,
+        name,
+        color
+      ),
       customer:customers (
         id,
         name,
@@ -265,6 +296,6 @@ export async function getTodayAppointments() {
     session: appointment.customer?.treatments?.[0] 
       ? `${appointment.customer.treatments[0].current_session}/${appointment.customer.treatments[0].total_sessions}`
       : "-",
-         status: appointment.status
+         status: appointment.appointment_status?.code || "pending"
   }))
 } 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { getAppointment, createAppointment, updateAppointment, Appointment } from "@/lib/appointment-api"
+import { getAppointmentStatuses, AppointmentStatus } from "@/lib/appointment-status-api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,7 +29,7 @@ type FormData = {
   customer_id: string
   appointment_date: string
   appointment_time: string
-  status: "pending" | "confirmed" | "cancelled"
+  status_id: string
   notes: string
 }
 
@@ -56,9 +57,30 @@ export function AppointmentDialog({
     customer_id: "",
     appointment_date: format(new Date(), "yyyy-MM-dd"),
     appointment_time: "",
-    status: "pending",
+    status_id: "",
     notes: "",
   })
+  const [appointmentStatuses, setAppointmentStatuses] = useState<AppointmentStatus[]>([])
+
+  // Load appointment statuses
+  useEffect(() => {
+    const loadStatuses = async () => {
+      try {
+        const statuses = await getAppointmentStatuses()
+        setAppointmentStatuses(statuses)
+        // Set default status if not set
+        if (!formData.status_id && statuses.length > 0) {
+          const defaultStatus = statuses.find(s => s.code === "pending")
+          if (defaultStatus) {
+            setFormData(prev => ({ ...prev, status_id: defaultStatus.id }))
+          }
+        }
+      } catch (error) {
+        console.error("Error loading appointment statuses:", error)
+      }
+    }
+    loadStatuses()
+  }, [])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [searchValue, setSearchValue] = useState("")
@@ -100,7 +122,7 @@ export function AppointmentDialog({
         customer_id: data.customer_id,
         appointment_date: format(new Date(data.appointment_date), "yyyy-MM-dd"),
         appointment_time: data.appointment_time,
-        status: data.status,
+        status_id: data.status_id,
         notes: data.notes || "",
       })
       // Tìm và set customer đã chọn
@@ -240,18 +262,20 @@ export function AppointmentDialog({
           <div className="space-y-2">
             <Label htmlFor="status">Trạng thái</Label>
             <Select
-              value={formData.status}
+              value={formData.status_id}
               onValueChange={(value) =>
-                setFormData({ ...formData, status: value as "pending" | "confirmed" | "cancelled" })
+                setFormData({ ...formData, status_id: value })
               }
             >
               <SelectTrigger>
                 <SelectValue placeholder="Chọn trạng thái" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pending">Chờ xác nhận</SelectItem>
-                <SelectItem value="confirmed">Đã xác nhận</SelectItem>
-                <SelectItem value="cancelled">Đã hủy</SelectItem>
+                {appointmentStatuses.map((status) => (
+                  <SelectItem key={status.id} value={status.id}>
+                    {status.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

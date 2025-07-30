@@ -96,9 +96,7 @@ export function StaffAppointmentsDialog({
                       <TableCell>{appointment.appointment_time}</TableCell>
                       <TableCell>{appointment.customers?.name}</TableCell>
                       <TableCell>
-                        {appointment.status === "confirmed" && "Đã xác nhận"}
-                        {appointment.status === "pending" && "Chờ xác nhận"}
-                        {appointment.status === "cancelled" && "Đã hủy"}
+                        {appointment.appointment_status?.name || "Không xác định"}
                       </TableCell>
                       <TableCell className="whitespace-pre-wrap">{appointment.notes}</TableCell>
                     </TableRow>

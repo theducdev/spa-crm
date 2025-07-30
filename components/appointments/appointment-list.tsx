@@ -1,6 +1,7 @@
 "use client"
 
 import { Appointment } from "../../lib/appointment-api"
+import { getAppointmentStatuses, AppointmentStatus } from "../../lib/appointment-status-api"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -20,7 +21,7 @@ import {
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import { updateAppointment } from "@/lib/appointment-api"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
@@ -30,10 +31,16 @@ interface AppointmentWithCustomer extends Appointment {
   customer_id: string
   appointment_date: string
   appointment_time: string
-  status: "pending" | "confirmed" | "cancelled"
+  status_id: string
   notes?: string
   created_at: string
   updated_at: string
+  appointment_status?: {
+    id: string
+    code: string
+    name: string
+    color: string
+  }
   customers?: {
     id: string
     name: string
@@ -65,9 +72,23 @@ export function AppointmentList({
 }: AppointmentListProps) {
   const router = useRouter()
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
+  const [appointmentStatuses, setAppointmentStatuses] = useState<AppointmentStatus[]>([])
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  // Load appointment statuses
+  useEffect(() => {
+    const loadStatuses = async () => {
+      try {
+        const statuses = await getAppointmentStatuses()
+        setAppointmentStatuses(statuses)
+      } catch (error) {
+        console.error("Error loading appointment statuses:", error)
+      }
+    }
+    loadStatuses()
+  }, [])
+
+  const getStatusColor = (statusCode: string) => {
+    switch (statusCode) {
       case "confirmed":
         return "text-green-600"
       case "cancelled":
@@ -77,15 +98,8 @@ export function AppointmentList({
     }
   }
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "confirmed":
-        return "Đã xác nhận"
-      case "cancelled":
-        return "Đã hủy"
-      default:
-        return "Chờ xác nhận"
-    }
+  const getStatusText = (appointment: AppointmentWithCustomer) => {
+    return appointment.appointment_status?.name || "Không xác định"
   }
 
   const getRowClassName = (status: string) => {
@@ -105,10 +119,10 @@ export function AppointmentList({
     }).format(debt)
   }
 
-  const handleStatusChange = async (id: string, newStatus: "pending" | "confirmed" | "cancelled") => {
+  const handleStatusChange = async (id: string, newStatusId: string) => {
     try {
       setLoadingStates(prev => ({ ...prev, [id]: true }))
-      await updateAppointment(id, { status: newStatus })
+      await updateAppointment(id, { status_id: newStatusId })
       onRefresh()
     } catch (error) {
       console.error("Error updating appointment status:", error)
@@ -160,7 +174,7 @@ export function AppointmentList({
               key={appointment.id}
               className={cn(
                 "group hover:bg-muted/50 transition-colors",
-                getRowClassName(appointment.status)
+                getRowClassName(appointment.appointment_status?.code || "")
               )}
             >
               <TableCell className="font-medium">
@@ -204,23 +218,29 @@ export function AppointmentList({
               <TableCell>
                 <div className="flex items-center gap-2 min-w-[110px]">
                   <Select
-                    value={appointment.status}
-                    onValueChange={(value) => handleStatusChange(appointment.id, value as "pending" | "confirmed" | "cancelled")}
+                    value={appointment.status_id}
+                    onValueChange={(value) => handleStatusChange(appointment.id, value)}
                     disabled={loadingStates[appointment.id]}
                   >
                     <SelectTrigger 
                       className={cn(
                         "border-0 p-0 h-auto bg-transparent hover:bg-transparent focus:ring-0 font-medium",
-                        getStatusColor(appointment.status),
+                        getStatusColor(appointment.appointment_status?.code || ""),
                         loadingStates[appointment.id] && "opacity-50"
                       )}
                     >
-                      <SelectValue>{getStatusText(appointment.status)}</SelectValue>
+                      <SelectValue>{getStatusText(appointment)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent align="start">
-                      <SelectItem value="pending" className="text-yellow-600 font-medium">Chờ xác nhận</SelectItem>
-                      <SelectItem value="confirmed" className="text-green-600 font-medium">Đã xác nhận</SelectItem>
-                      <SelectItem value="cancelled" className="text-red-600 font-medium">Đã hủy</SelectItem>
+                      {appointmentStatuses.map((status) => (
+                        <SelectItem 
+                          key={status.id} 
+                          value={status.id} 
+                          className={`text-${status.color}-600 font-medium`}
+                        >
+                          {status.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {loadingStates[appointment.id] && (

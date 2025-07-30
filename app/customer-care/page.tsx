@@ -40,7 +40,7 @@ import { Customer, getCustomer } from "@/lib/customer-api"
 import { CustomerMessage } from "@/types/customer-care"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, maskPhoneNumber } from "@/lib/utils"
 import { getTreatmentsByCustomer, getTreatmentSessions, upsertTreatmentSession } from "@/lib/treatment-api"
 import { createAppointment } from "@/lib/appointment-api"
 import type { Treatment, TreatmentSession } from "@/lib/supabase"
@@ -475,7 +475,7 @@ function CustomerCareContent() {
                           )}
                         </div>
                         <p className="text-xs sm:text-sm text-muted-foreground">
-                          {(customer.phone)}
+                          {maskPhoneNumber(customer.phone)}
                         </p>
                         {customer.debt > 0 && (
                           <p className="text-xs sm:text-sm text-red-500">
