@@ -24,6 +24,7 @@ export function AddSessionDialog({ treatment, onSessionAdded, canAddSession }: A
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
+  const [currentUser, setCurrentUser] = useState<{ id: number } | null>(null)
   const { toast } = useToast()
 
   const [sessionData, setSessionData] = useState({
@@ -38,8 +39,21 @@ export function AddSessionDialog({ treatment, onSessionAdded, canAddSession }: A
   useEffect(() => {
     if (open) {
       loadProducts()
+      loadCurrentUser()
     }
   }, [open])
+
+  const loadCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/current-user')
+      const data = await response.json()
+      if (data.user) {
+        setCurrentUser(data.user)
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error)
+    }
+  }
 
   const loadProducts = async () => {
     try {
@@ -56,12 +70,12 @@ export function AddSessionDialog({ treatment, onSessionAdded, canAddSession }: A
   }
 
   const handleCreateSession = async () => {
-    if (!treatment) return
+    if (!treatment || !currentUser) return
 
     setLoading(true)
     try {
       // Tạo session mới
-      const newSession = await createNewTreatmentSession(treatment.id)
+      const newSession = await createNewTreatmentSession(treatment.id, currentUser.id)
 
       // Cập nhật thông tin chi tiết của session
       await upsertTreatmentSession({
@@ -71,7 +85,7 @@ export function AddSessionDialog({ treatment, onSessionAdded, canAddSession }: A
         session_date: sessionData.session_date,
         products_used: sessionData.products_used,
         notes: sessionData.notes
-      })
+      }, currentUser.id)
 
       toast({
         title: "Thành công",

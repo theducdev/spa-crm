@@ -46,6 +46,7 @@ interface ProductSoldSession {
   id: string
   created_at: string
   customer_name: string
+  created_by_name?: string
   products_sold: ProductUsage[]
 }
 
@@ -67,6 +68,7 @@ function ProductsSoldContent() {
         id,
         created_at,
         products_sold,
+        created_by,
         treatment_id,
         treatment:treatments!inner (
           id,
@@ -75,6 +77,10 @@ function ProductsSoldContent() {
             id,
             name
           )
+        ),
+        creator:users (
+          id,
+          full_name
         )
       `)
       .not('products_sold', 'is', null)
@@ -95,6 +101,7 @@ function ProductsSoldContent() {
         id: session.id,
         created_at: session.created_at,
         customer_name: session.treatment?.customer?.name || 'Không có thông tin',
+        created_by_name: session.creator?.full_name || 'Không có thông tin',
         products_sold: typeof session.products_sold === 'string' ? 
           JSON.parse(session.products_sold) : 
           []
@@ -204,6 +211,7 @@ function ProductsSoldContent() {
                 <TableHead>Ngày bán</TableHead>
                 <TableHead>Khách hàng</TableHead>
                 <TableHead>Sản phẩm</TableHead>
+                <TableHead>Người tạo</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -217,6 +225,7 @@ function ProductsSoldContent() {
                       {session.customer_name}
                     </TableCell>
                     <TableCell>{product.product}</TableCell>
+                    <TableCell>{session.created_by_name}</TableCell>
                   </TableRow>
                 ))
               })}

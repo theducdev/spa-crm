@@ -289,7 +289,7 @@ function TreatmentPageContent() {
         treatment_id: selectedTreatment.id,
         session_number: currentSession.session_number,
         ...formattedData
-      })
+      }, currentUser.id)
 
       // Tự động tạo lịch hẹn nếu có next_appointment và next_appointment đã thay đổi
       if (sessionData.next_appointment && 

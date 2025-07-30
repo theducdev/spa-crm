@@ -76,7 +76,7 @@ export async function getTreatmentSession(sessionId: string) {
 }
 
 // Tạo hoặc cập nhật buổi điều trị
-export async function upsertTreatmentSession(sessionData: Partial<TreatmentSession>) {
+export async function upsertTreatmentSession(sessionData: Partial<TreatmentSession>, userId?: number) {
   // Nếu có id, thực hiện cập nhật
   if (sessionData.id) {
     const { data, error } = await supabase
@@ -93,7 +93,10 @@ export async function upsertTreatmentSession(sessionData: Partial<TreatmentSessi
   // Nếu không có id, thực hiện thêm mới
   const { data, error } = await supabase
     .from("treatment_sessions")
-    .insert(sessionData)
+    .insert({
+      ...sessionData,
+      created_by: userId
+    })
     .select()
     .single()
 
@@ -219,7 +222,7 @@ export async function deleteTreatmentImage(imageId: string) {
 }
 
 // Tạo buổi điều trị mới
-export async function createNewTreatmentSession(treatmentId: string) {
+export async function createNewTreatmentSession(treatmentId: string, userId: number) {
   // Lấy thông tin liệu trình hiện tại
   const { data: treatment, error: treatmentError } = await supabase
     .from("treatments")
@@ -243,6 +246,7 @@ export async function createNewTreatmentSession(treatmentId: string) {
       treatment_id: treatmentId,
       session_number: nextSessionNumber,
       session_date: new Date().toISOString().split("T")[0], // Ngày hiện tại
+      created_by: userId
     })
     .select()
     .single()
