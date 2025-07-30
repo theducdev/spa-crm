@@ -50,6 +50,10 @@ export type TreatmentSession = {
   products_sold: string | null
   after_sales_care: string | null // Thêm trường mới
   treatment_images?: TreatmentImage[]
+  creator?: {
+    id: number
+    full_name: string
+  }
 }
 
 export interface TreatmentImage {

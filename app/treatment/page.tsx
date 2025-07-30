@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Save, Camera, User, Calendar, ChevronLeft, ChevronRight, X, Loader2, CheckCircle2 } from "lucide-react"
+import { Upload, Save, Camera, User, Calendar, ChevronLeft, ChevronRight, X, Loader2, CheckCircle2, Circle } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Combobox } from "@/components/ui/combobox"
 import { useToast } from "@/hooks/use-toast"
@@ -24,6 +24,7 @@ import {
   uploadTreatmentImage,
   deleteTreatmentImage,
   canCreateNewSession,
+  getRecentTreatmentSessions,
 } from "@/lib/treatment-api"
 import { createAppointment } from "@/lib/appointment-api"
 import type { Treatment, TreatmentSession } from "@/lib/supabase"
@@ -111,9 +112,36 @@ function TreatmentPageContent() {
 
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+  
+  // State cho danh sách treatment sessions
+  const [recentSessions, setRecentSessions] = useState<any[]>([])
+  const [loadingSessions, setLoadingSessions] = useState(true)
 
   const searchParams = useSearchParams()
   const treatmentId = searchParams.get("id")
+
+  // Effect để load danh sách treatment sessions khi không có id
+  useEffect(() => {
+    const loadRecentSessions = async () => {
+      if (!treatmentId) {
+        try {
+          const data = await getRecentTreatmentSessions()
+          setRecentSessions(data)
+        } catch (error) {
+          console.error('Error loading recent sessions:', error)
+          toast({
+            title: "Lỗi",
+            description: "Không thể tải danh sách buổi điều trị",
+            variant: "destructive",
+          })
+        } finally {
+          setLoadingSessions(false)
+        }
+      }
+    }
+
+    loadRecentSessions()
+  }, [treatmentId])
 
   // Load treatments on component mount
   useEffect(() => {
@@ -172,7 +200,7 @@ function TreatmentPageContent() {
 
   const loadProducts = async () => {
     try {
-      const data = await getProducts({ status: "active" })
+      const data = await getProducts({ status: "active", search: "" })
       setProducts(data)
     } catch (error) {
       console.error(error)
@@ -583,6 +611,109 @@ function TreatmentPageContent() {
     )
   }
 
+  // Render danh sách treatment sessions khi không có id
+  if (!treatmentId) {
+    if (loadingSessions) {
+      return (
+        <div className="p-6 flex items-center justify-center min-h-[60vh]">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            <p>Đang tải danh sách buổi điều trị...</p>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Danh sách buổi điều trị gần đây</h1>
+        </div>
+
+        <div className="rounded-md border shadow-sm">
+          <div className="relative w-full overflow-auto">
+            <table className="w-full caption-bottom text-sm">
+              <thead className="[&_tr]:border-b bg-muted/50">
+                <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Ngày tạo</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Khách hàng</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Liệu trình</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Ngày điều trị</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[200px]">Sản phẩm đã bán</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[200px]">Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody className="[&_tr:last-child]:border-0">
+                {recentSessions.map((session) => (
+                  <tr
+                    key={session.id}
+                    className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted cursor-pointer"
+                    onClick={() => router.push(`/treatment?id=${session.treatment?.id}`)}
+                  >
+                    <td className="p-4 align-top">
+                      <div className="text-sm">
+                        {new Date(session.created_at || '').toLocaleDateString('vi-VN', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                        })}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(session.created_at || '').toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </td>
+                    <td className="p-4 align-top">
+                      <div>
+                        <div className="font-medium">{session.treatment?.customer?.name || 'N/A'}</div>
+                        <div className="text-sm text-muted-foreground">{maskPhoneNumber(session.treatment?.customer?.phone || '')}</div>
+                      </div>
+                    </td>
+                    <td className="p-4 align-top">
+                      <div className="font-medium">{session.treatment?.treatment_name}</div>
+                      <div className={`text-xs ${session.session_date ? 'text-green-600' : 'text-muted-foreground'} flex items-center gap-1`}>
+                        {session.session_date ? (
+                          <CheckCircle2 className="h-3 w-3" />
+                        ) : (
+                          <Circle className="h-3 w-3" />
+                        )}
+                        <span>
+                          Buổi {session.session_number}/{session.treatment?.total_sessions}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-4 align-top whitespace-nowrap">
+                      {session.session_date ? new Date(session.session_date).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                    </td>
+                    <td className="p-4 align-top">
+                      {session.products_sold && (
+                        <div className="space-y-1.5">
+                          {JSON.parse(session.products_sold).map((product: any, index: number) => (
+                            <div key={index} className="text-sm">
+                              <div className="font-medium">{product.product}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-4 align-top">
+                      <div className="text-sm whitespace-pre-wrap">{session.notes}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 pb-20 sm:pb-6">
       {/* Header */}
@@ -590,12 +721,35 @@ function TreatmentPageContent() {
         <h1 className="text-2xl sm:text-3xl font-bold">Ghi nhận điều trị</h1>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+          {/* Back Button */}
+          {treatmentId && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/treatment')}
+                className="hidden sm:flex items-center gap-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Danh sách buổi điều trị
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/treatment')}
+                className="sm:hidden"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+
           {/* Treatment Selection */}
           <div className="relative">
             <Combobox
               options={treatments.map(treatment => ({
                 value: treatment.id,
-                label: `${treatment.customer?.name || 'N/A'} - ${maskPhoneNumber(treatment.customer?.phone)} - ${treatment.treatment_name}`
+                label: `${treatment.customer?.name || 'N/A'} - ${maskPhoneNumber(treatment.customer?.phone || '')} - ${treatment.treatment_name}`
               }))}
               value={selectedTreatment?.id || ""}
               onValueChange={handleTreatmentChange}
@@ -670,7 +824,7 @@ function TreatmentPageContent() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Số điện thoại</Label>
-                  <p className="text-base">{maskPhoneNumber(selectedTreatment.customer?.phone)}</p>
+                  <p className="text-base">{maskPhoneNumber(selectedTreatment.customer?.phone || '')}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Email</Label>
@@ -767,7 +921,7 @@ function TreatmentPageContent() {
                              onClick={() => handleImageClick(filteredImages, index)}>
                           {image.image_url?.toLowerCase().endsWith('.mp4') ? (
                             <video
-                              src={image.image_url}
+                              src={image.image_url || ""}
                               className="w-full h-full object-cover rounded"
                               controls
                             />
@@ -832,7 +986,7 @@ function TreatmentPageContent() {
                              onClick={() => handleImageClick(filteredImages, index)}>
                           {image.image_url?.toLowerCase().endsWith('.mp4') ? (
                             <video
-                              src={image.image_url}
+                              src={image.image_url || ""}
                               className="w-full h-full object-cover rounded"
                               controls
                             />

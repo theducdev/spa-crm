@@ -598,3 +598,31 @@ export async function getTotalRevenue() {
     return { total: 0, percentChange: 0 }
   }
 }
+
+export async function getRecentTreatmentSessions() {
+  const { data, error } = await supabase
+    .from('treatment_sessions')
+    .select(`
+      id,
+      session_date,
+      session_number,
+      products_sold,
+      notes,
+      created_at,
+      treatment:treatments(
+        id,
+        treatment_name,
+        total_sessions,
+        customer:customers(
+          id,
+          name,
+          phone
+        )
+      )
+    `)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) throw error;
+  return data;
+}
