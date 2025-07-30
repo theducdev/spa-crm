@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef, memo, Suspense } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -111,6 +112,7 @@ const DebtInput = memo(({
 DebtInput.displayName = "DebtInput"
 
 function CustomersContent() {
+  const router = useRouter()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -623,6 +625,10 @@ function CustomersContent() {
     return () => clearTimeout(timer)
   }, [])
 
+  const handleCustomerNameClick = (customerId: string) => {
+    router.push(`/treatments?selectedCustomerId=${customerId}`)
+  }
+
   return (
     <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 pb-20 sm:pb-6">
       {/* Header */}
@@ -1038,7 +1044,12 @@ function CustomersContent() {
                   <div key={customer.id} className="p-4 border rounded-lg space-y-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium truncate">{customer.name}</h3>
+                        <button
+                          onClick={() => handleCustomerNameClick(customer.id)}
+                          className="font-medium truncate text-left text-primary hover:text-primary/80 hover:underline cursor-pointer transition-colors block w-full"
+                        >
+                          {customer.name}
+                        </button>
                         <p className="text-sm text-muted-foreground">{maskPhoneNumber(customer.phone)}</p>
                         <p className="text-sm text-muted-foreground truncate">{customer.email || "Chưa có email"}</p>
                         {customer.tag ? (
@@ -1106,7 +1117,14 @@ function CustomersContent() {
                   <TableBody>
                     {customers.map((customer) => (
                       <TableRow key={customer.id}>
-                        <TableCell className="font-medium">{customer.name}</TableCell>
+                        <TableCell>
+                          <button
+                            onClick={() => handleCustomerNameClick(customer.id)}
+                            className="font-medium text-left text-primary hover:text-primary/80 hover:underline cursor-pointer transition-colors"
+                          >
+                            {customer.name}
+                          </button>
+                        </TableCell>
                         <TableCell>{maskPhoneNumber(customer.phone)}</TableCell>
                         <TableCell>{customer.email || "Chưa có"}</TableCell>
                         <TableCell>
