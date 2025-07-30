@@ -328,7 +328,7 @@ export async function updateTreatment(id: string, treatmentData: Partial<Treatme
 }
 
 // Cập nhật số buổi hiện tại của liệu trình
-export async function updateTreatmentCurrentSession(id: string, currentSession: number) {
+export async function updateTreatmentCurrentSession(id: string, currentSession: number, userId: number) {
   // Lấy thông tin liệu trình và các buổi điều trị hiện tại
   const { data: treatment, error: treatmentError } = await supabase
     .from("treatments")
@@ -358,6 +358,7 @@ export async function updateTreatmentCurrentSession(id: string, currentSession: 
         treatment_id: id,
         session_number: i,
         session_date: new Date().toISOString().split("T")[0], // Ngày hiện tại
+        created_by: userId
       })
     }
 

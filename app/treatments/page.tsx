@@ -56,6 +56,7 @@ function TreatmentsContent() {
     action: "increase" | "decrease" | "none";
   } | null>(null)
   const currentSessionInputRef = useRef<HTMLInputElement>(null)
+  const [currentUser, setCurrentUser] = useState<{ id: number } | null>(null)
 
   // Form data for new/edit treatment
   const [formData, setFormData] = useState({
@@ -68,7 +69,20 @@ function TreatmentsContent() {
   useEffect(() => {
     loadCustomers()
     loadTreatmentPackages()
+    loadCurrentUser()
   }, [])
+
+  const loadCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/current-user')
+      const data = await response.json()
+      if (data.user) {
+        setCurrentUser(data.user)
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error)
+    }
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -875,12 +889,12 @@ function TreatmentsContent() {
               className="w-full" 
               onClick={async () => {
                 try {
-                  if (!selectedTreatment || !currentSessionInputRef.current) return
+                  if (!selectedTreatment || !currentSessionInputRef.current || !currentUser) return
 
                   const newSession = parseInt(currentSessionInputRef.current.value)
                   const oldSession = selectedTreatment.current_session
                   
-                  await updateTreatmentCurrentSession(selectedTreatment.id, newSession)
+                  await updateTreatmentCurrentSession(selectedTreatment.id, newSession, currentUser.id)
                   
                   setUpdateResult({
                     oldSession,
