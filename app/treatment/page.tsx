@@ -714,6 +714,10 @@ function TreatmentPageContent() {
                       <Label className="text-sm font-medium text-muted-foreground">Ngày điều trị</Label>
                       <p className="text-base">{currentSession.session_date || "Chưa xác định"}</p>
                     </div>
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Người tạo</Label>
+                      <p className="text-base">{currentSession.creator?.full_name || "Không có thông tin"}</p>
+                    </div>
                     {currentSession.next_appointment && (
                       <div>
                         <Label className="text-sm font-medium text-muted-foreground">Lịch hẹn tiếp theo</Label>

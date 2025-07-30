@@ -49,7 +49,11 @@ export async function getTreatmentSessions(treatmentId: string) {
     .from("treatment_sessions")
     .select(`
       *,
-      treatment_images(*)
+      treatment_images(*),
+      creator:users(
+        id,
+        full_name
+      )
     `)
     .eq("treatment_id", treatmentId)
     .order("session_number", { ascending: true })
