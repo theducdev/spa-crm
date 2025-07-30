@@ -228,6 +228,12 @@ export async function getTodayAppointments() {
       customer:customers (
         id,
         name,
+        debt,
+        tag:customer_tags (
+          id,
+          name,
+          color
+        ),
         treatments (
           id,
           treatment_name,
@@ -253,6 +259,11 @@ export async function getTodayAppointments() {
     session: appointment.customer?.treatments?.[0] 
       ? `${appointment.customer.treatments[0].current_session}/${appointment.customer.treatments[0].total_sessions}`
       : "-",
-    status: appointment.status
+    status: appointment.status,
+    debt: appointment.customer?.debt || 0,
+    tag: appointment.customer?.tag ? {
+      name: appointment.customer.tag.name,
+      color: appointment.customer.tag.color
+    } : null
   }))
 } 

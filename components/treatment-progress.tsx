@@ -63,7 +63,7 @@ export function TreatmentProgress({ treatment }: TreatmentProgressProps) {
 
       {treatment.notes && (
         <div className="p-3 bg-gray-50 rounded-lg">
-          <p className="text-sm text-muted-foreground mb-1">Ghi chú liệu trình:</p>
+          <p className="text-sm text-muted-foreground mb-1">Công nghệ sử dụng:</p>
           <p className="text-sm">{treatment.notes}</p>
         </div>
       )}

@@ -182,6 +182,23 @@ export default function Dashboard() {
                         {appointment.name}
                         <span className="text-xs text-muted-foreground">(Xem CSKH)</span>
                       </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        {appointment.tag && (
+                          <Badge variant="outline" style={{ backgroundColor: appointment.tag.color, color: "#fff" }} className="text-xs">
+                            {appointment.tag.name}
+                          </Badge>
+                        )}
+                        <Badge variant={appointment.debt > 0 ? "destructive" : "secondary"} className="text-xs">
+                          {appointment.debt > 0 
+                            ? `Nợ: ${new Intl.NumberFormat("vi-VN", {
+                                style: "currency",
+                                currency: "VND",
+                                maximumFractionDigits: 0
+                              }).format(appointment.debt)}`
+                            : "Không có nợ"
+                          }
+                        </Badge>
+                      </div>
                       <div className="text-xs sm:text-sm text-muted-foreground truncate">{appointment.treatment}</div>
                     </div>
                   </div>
