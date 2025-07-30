@@ -94,7 +94,7 @@ function TreatmentsContent() {
 
   // Thêm effect để theo dõi selectedCustomerId từ URL
   useEffect(() => {
-    if (searchFilters.selectedCustomerId && customers.length > 0) {
+    if (searchFilters.selectedCustomerId && customers && customers.length > 0) {
       const customer = customers.find(c => c.id === searchFilters.selectedCustomerId)
       if (customer) {
         setSelectedCustomer(customer)
@@ -119,8 +119,8 @@ function TreatmentsContent() {
       if (searchFilters.search) {
         filters.search = searchFilters.search
       }
-      const data = await getCustomers(filters)
-      setCustomers(data)
+      const result = await getCustomers(filters)
+      setCustomers(result.data)
     } catch (error) {
       console.error(error)
       toast({
@@ -347,7 +347,7 @@ function TreatmentsContent() {
                   <div className="p-8 text-center">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                   </div>
-                ) : customers.length === 0 ? (
+                ) : !customers || customers.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
                     {searchFilters.search ? "Không tìm thấy khách hàng" : "Chưa có khách hàng nào"}
                   </div>
