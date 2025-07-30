@@ -37,6 +37,8 @@ interface AppointmentWithCustomer extends Appointment {
   customers?: {
     id: string
     name: string
+    phone: string
+    debt: number | null
   }
   created_by_user?: {
     id: number
@@ -93,6 +95,14 @@ export function AppointmentList({
     }
   }
 
+  const formatDebt = (debt: number | null) => {
+    if (debt === null || debt === 0) return "Không có nợ"
+    return new Intl.NumberFormat("vi-VN", { 
+      style: "currency", 
+      currency: "VND" 
+    }).format(debt)
+  }
+
   const handleStatusChange = async (id: string, newStatus: "pending" | "confirmed" | "cancelled") => {
     try {
       setLoadingStates(prev => ({ ...prev, [id]: true }))
@@ -119,6 +129,7 @@ export function AppointmentList({
               </>
             )}
             <TableHead className="w-[180px]">Khách hàng</TableHead>
+            <TableHead className="w-[150px]">Nợ</TableHead>
             <TableHead className="w-[120px]">Trạng thái</TableHead>
             <TableHead className="w-[150px]">Nhân viên</TableHead>
             <TableHead className="min-w-[200px]">Ghi chú</TableHead>
@@ -163,6 +174,13 @@ export function AppointmentList({
                 >
                   {appointment.customers?.name}
                   <span className="text-xs text-muted-foreground">(Xem CSKH)</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className={cn(
+                  appointment.customers?.debt && appointment.customers.debt > 0 ? "text-destructive" : "text-muted-foreground"
+                )}>
+                  {formatDebt(appointment.customers?.debt || null)}
                 </div>
               </TableCell>
               <TableCell>

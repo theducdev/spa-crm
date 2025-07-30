@@ -24,7 +24,9 @@ export async function getAppointments(filters?: {
       *,
       customers (
         id,
-        name
+        name,
+        phone,
+        debt
       ),
       created_by_user:users!created_by (
         id,
@@ -185,7 +187,9 @@ export async function getStaffAppointments(staffId: number) {
       *,
       customers (
         id,
-        name
+        name,
+        phone,
+        debt
       ),
       created_by_user:users!created_by (
         id,
