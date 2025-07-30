@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
 import { getCustomers, type Customer, type CustomerFilters } from "@/lib/customer-api"
-import { getTreatmentsByCustomer, createTreatment, updateTreatment, deleteTreatment } from "@/lib/treatment-api"
+import { getTreatmentsByCustomer, createTreatment, updateTreatment, deleteTreatment, updateTreatmentCurrentSession } from "@/lib/treatment-api"
 import type { Treatment } from "@/lib/supabase"
 import { getTreatmentPackages, type TreatmentPackage } from "@/lib/treatment-package-api"
 import { maskPhoneNumber } from "@/lib/utils"
@@ -48,6 +48,14 @@ function TreatmentsContent() {
   const [selectedTreatment, setSelectedTreatment] = useState<Treatment | null>(null)
   const [treatmentSearchValue, setTreatmentSearchValue] = useState("")
   const [showCustomerInfoDialog, setShowCustomerInfoDialog] = useState(false)
+  const [showEditSessionDialog, setShowEditSessionDialog] = useState(false)
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [updateResult, setUpdateResult] = useState<{
+    oldSession: number;
+    newSession: number;
+    action: "increase" | "decrease" | "none";
+  } | null>(null)
+  const currentSessionInputRef = useRef<HTMLInputElement>(null)
 
   // Form data for new/edit treatment
   const [formData, setFormData] = useState({
@@ -418,7 +426,21 @@ function TreatmentsContent() {
                         </button>
                       </TableCell>
                       <TableCell>
-                        {treatment.current_session}/{treatment.total_sessions} buổi
+                        <div className="flex items-center gap-2">
+                          <span>{treatment.current_session}/{treatment.total_sessions} buổi</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedTreatment(treatment)
+                              setShowEditSessionDialog(true)
+                            }}
+                            className="h-6 w-6"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell>{treatment.start_date}</TableCell>
                       <TableCell>
@@ -751,7 +773,22 @@ function TreatmentsContent() {
                                   </button>
                                 </TableCell>
                                 <TableCell>
-                                  {treatment.current_session}/{treatment.total_sessions} buổi
+                                  <div className="flex items-center gap-2">
+                                    <span>{treatment.current_session}/{treatment.total_sessions} buổi</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setSelectedTreatment(treatment)
+                                        setShowEditSessionDialog(true)
+                                      }}
+                                      className="h-6 w-6"
+                                      aria-label={`Chỉnh sửa số buổi của liệu trình ${treatment.treatment_name}`}
+                                    >
+                                      <Edit className="h-3 w-3" />
+                                    </Button>
+                                  </div>
                                 </TableCell>
                                 <TableCell>{treatment.start_date}</TableCell>
                                 <TableCell>
@@ -807,6 +844,117 @@ function TreatmentsContent() {
               </>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Current Session Dialog */}
+      <Dialog open={showEditSessionDialog} onOpenChange={setShowEditSessionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cập nhật số buổi điều trị</DialogTitle>
+            <DialogDescription>
+              Nhập số buổi điều trị hiện tại cho liệu trình {selectedTreatment?.treatment_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="current_session">Số buổi hiện tại</Label>
+              <Input
+                id="current_session"
+                type="number"
+                min={0}
+                max={selectedTreatment?.total_sessions}
+                defaultValue={selectedTreatment?.current_session}
+                ref={currentSessionInputRef}
+              />
+              <p className="text-sm text-muted-foreground">
+                Tổng số buổi: {selectedTreatment?.total_sessions} buổi
+              </p>
+            </div>
+            <Button 
+              className="w-full" 
+              onClick={async () => {
+                try {
+                  if (!selectedTreatment || !currentSessionInputRef.current) return
+
+                  const newSession = parseInt(currentSessionInputRef.current.value)
+                  const oldSession = selectedTreatment.current_session
+                  
+                  await updateTreatmentCurrentSession(selectedTreatment.id, newSession)
+                  
+                  setUpdateResult({
+                    oldSession,
+                    newSession,
+                    action: newSession > oldSession ? "increase" : newSession < oldSession ? "decrease" : "none"
+                  })
+                  
+                  setShowEditSessionDialog(false)
+                  setShowSuccessDialog(true)
+                  await loadCustomerTreatments()
+                } catch (error: any) {
+                  toast({
+                    title: "Lỗi",
+                    description: error.message || "Không thể cập nhật số buổi điều trị",
+                    variant: "destructive",
+                  })
+                }
+              }}
+            >
+              Cập nhật
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <Check className="h-5 w-5" />
+              Cập nhật thành công
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {updateResult && (
+              <div className="space-y-4">
+                <div className="text-center text-lg font-medium">
+                  {selectedTreatment?.treatment_name}
+                </div>
+                <div className="flex items-center justify-center gap-4">
+                  <div className="text-center">
+                    <div className="text-sm text-muted-foreground">Số buổi cũ</div>
+                    <div className="text-2xl font-semibold">{updateResult.oldSession}</div>
+                  </div>
+                  <div className="text-2xl text-muted-foreground">→</div>
+                  <div className="text-center">
+                    <div className="text-sm text-muted-foreground">Số buổi mới</div>
+                    <div className="text-2xl font-semibold">{updateResult.newSession}</div>
+                  </div>
+                </div>
+                <div className="text-center text-sm text-muted-foreground">
+                  {updateResult.action === "increase" ? (
+                    <>Đã tự động tạo thêm {updateResult.newSession - updateResult.oldSession} buổi điều trị mới</>
+                  ) : updateResult.action === "decrease" ? (
+                    <>Đã xóa {updateResult.oldSession - updateResult.newSession} buổi điều trị cuối cùng</>
+                  ) : (
+                    <>Không có thay đổi về số buổi</>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              className="w-full" 
+              onClick={() => {
+                setShowSuccessDialog(false)
+                setUpdateResult(null)
+              }}
+            >
+              Đóng
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

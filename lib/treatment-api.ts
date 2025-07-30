@@ -319,6 +319,78 @@ export async function updateTreatment(id: string, treatmentData: Partial<Treatme
   return data as Treatment
 }
 
+// Cập nhật số buổi hiện tại của liệu trình
+export async function updateTreatmentCurrentSession(id: string, currentSession: number) {
+  // Lấy thông tin liệu trình và các buổi điều trị hiện tại
+  const { data: treatment, error: treatmentError } = await supabase
+    .from("treatments")
+    .select(`
+      *,
+      treatment_sessions(*)
+    `)
+    .eq("id", id)
+    .single()
+
+  if (treatmentError) throw treatmentError
+
+  // Kiểm tra số buổi hợp lệ
+  if (currentSession < 0 || currentSession > treatment.total_sessions) {
+    throw new Error("Số buổi không hợp lệ")
+  }
+
+  // Lấy số buổi hiện tại và các session đã có
+  const existingSessions = treatment.treatment_sessions as TreatmentSession[]
+  const currentSessionCount = existingSessions.length
+
+  // Nếu số buổi mới lớn hơn số buổi hiện tại, tạo thêm các session mới
+  if (currentSession > currentSessionCount) {
+    const sessionsToCreate = []
+    for (let i = currentSessionCount + 1; i <= currentSession; i++) {
+      sessionsToCreate.push({
+        treatment_id: id,
+        session_number: i,
+        session_date: new Date().toISOString().split("T")[0], // Ngày hiện tại
+      })
+    }
+
+    // Tạo các session mới
+    const { error: insertError } = await supabase
+      .from("treatment_sessions")
+      .insert(sessionsToCreate)
+
+    if (insertError) throw insertError
+  }
+  // Nếu số buổi mới nhỏ hơn số buổi hiện tại, xóa bớt các session
+  else if (currentSession < currentSessionCount) {
+    // Sắp xếp các session theo số thứ tự giảm dần
+    const sortedSessions = existingSessions.sort((a, b) => b.session_number - a.session_number)
+    // Lấy các session cần xóa
+    const sessionsToDelete = sortedSessions.slice(0, currentSessionCount - currentSession)
+    
+    // Xóa các session thừa
+    const { error: deleteError } = await supabase
+      .from("treatment_sessions")
+      .delete()
+      .in("id", sessionsToDelete.map(s => s.id))
+
+    if (deleteError) throw deleteError
+  }
+
+  // Cập nhật số buổi hiện tại trong bảng treatments
+  const { data, error } = await supabase
+    .from("treatments")
+    .update({
+      current_session: currentSession,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Treatment
+}
+
 // Xóa liệu trình
 export async function deleteTreatment(id: string) {
   const { error } = await supabase
