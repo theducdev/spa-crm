@@ -26,7 +26,12 @@ export async function getAppointments(filters?: {
         id,
         name,
         phone,
-        debt
+        debt,
+        tag:customer_tags (
+          id,
+          name,
+          color
+        )
       ),
       created_by_user:users!created_by (
         id,
@@ -189,7 +194,12 @@ export async function getStaffAppointments(staffId: number) {
         id,
         name,
         phone,
-        debt
+        debt,
+        tag:customer_tags (
+          id,
+          name,
+          color
+        )
       ),
       created_by_user:users!created_by (
         id,
