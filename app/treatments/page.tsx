@@ -267,6 +267,14 @@ function TreatmentsContent() {
     }).format(value)
   }
 
+  const formatDebt = (debt: number | null) => {
+    if (debt === null || debt === 0) return "Không có nợ"
+    return new Intl.NumberFormat("vi-VN", { 
+      style: "currency", 
+      currency: "VND" 
+    }).format(debt)
+  }
+
   const handleTreatmentClick = (treatmentId: string) => {
     router.push(`/treatment?id=${treatmentId}`)
   }
@@ -335,6 +343,12 @@ function TreatmentsContent() {
                         <div className="text-sm text-muted-foreground">
                           {maskPhoneNumber(customer.phone)}
                         </div>
+                        <div className={cn(
+                          "text-sm",
+                          customer.debt && customer.debt > 0 ? "text-destructive" : "text-muted-foreground"
+                        )}>
+                          Nợ: {formatDebt(customer.debt)}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -354,6 +368,12 @@ function TreatmentsContent() {
                   Liệu trình của {selectedCustomer.name}
                   <div className="text-sm font-normal text-muted-foreground">
                     {maskPhoneNumber(selectedCustomer.phone)}
+                  </div>
+                  <div className={cn(
+                    "text-sm font-normal",
+                    selectedCustomer.debt && selectedCustomer.debt > 0 ? "text-destructive" : "text-muted-foreground"
+                  )}>
+                    Nợ: {formatDebt(selectedCustomer.debt)}
                   </div>
                 </div>
               ) : (
@@ -444,7 +464,13 @@ function TreatmentsContent() {
               <Label>Khách hàng</Label>
               <div className="font-medium">{selectedCustomer?.name}</div>
               <div className="text-sm text-muted-foreground">
-                {maskPhoneNumber(selectedCustomer?.phone)}
+                {maskPhoneNumber(selectedCustomer?.phone || null)}
+              </div>
+              <div className={cn(
+                "text-sm",
+                selectedCustomer?.debt && selectedCustomer.debt > 0 ? "text-destructive" : "text-muted-foreground"
+              )}>
+                Nợ: {formatDebt(selectedCustomer?.debt || null)}
               </div>
             </div>
             <div className="space-y-2">
@@ -523,7 +549,13 @@ function TreatmentsContent() {
               <Label>Khách hàng</Label>
               <div className="font-medium">{selectedCustomer?.name}</div>
               <div className="text-sm text-muted-foreground">
-                {maskPhoneNumber(selectedCustomer?.phone)}
+                {maskPhoneNumber(selectedCustomer?.phone || null)}
+              </div>
+              <div className={cn(
+                "text-sm",
+                selectedCustomer?.debt && selectedCustomer.debt > 0 ? "text-destructive" : "text-muted-foreground"
+              )}>
+                Nợ: {formatDebt(selectedCustomer?.debt || null)}
               </div>
             </div>
             <div className="space-y-2">
@@ -669,6 +701,12 @@ function TreatmentsContent() {
                     <Label htmlFor="customer-phone">Số điện thoại</Label>
                     <div id="customer-phone" className="text-sm">
                       {maskPhoneNumber(selectedCustomer.phone)}
+                    </div>
+                    <div className={cn(
+                      "text-sm",
+                      selectedCustomer.debt && selectedCustomer.debt > 0 ? "text-destructive" : "text-muted-foreground"
+                    )}>
+                      Nợ: {formatDebt(selectedCustomer.debt)}
                     </div>
                   </div>
                   <div className="space-y-2">
