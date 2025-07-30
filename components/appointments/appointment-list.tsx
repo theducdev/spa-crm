@@ -52,6 +52,7 @@ interface AppointmentListProps {
   onRefresh: () => void
   onDelete?: (id: string) => void
   showCreatedAt?: boolean
+  loading?: boolean
 }
 
 export function AppointmentList({
@@ -60,6 +61,7 @@ export function AppointmentList({
   onRefresh,
   onDelete,
   showCreatedAt = false,
+  loading = false,
 }: AppointmentListProps) {
   const router = useRouter()
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({})
@@ -137,7 +139,23 @@ export function AppointmentList({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {appointments.map((appointment) => (
+          {loading ? (
+            <TableRow>
+              <TableCell colSpan={showCreatedAt ? 9 : 7} className="p-8 text-center text-muted-foreground">
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Đang tải...</span>
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : appointments.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={showCreatedAt ? 9 : 7} className="p-8 text-center text-muted-foreground">
+                Không có lịch hẹn nào trong khoảng thời gian đã chọn
+              </TableCell>
+            </TableRow>
+          ) : (
+            appointments.map((appointment) => (
             <TableRow 
               key={appointment.id}
               className={cn(
@@ -229,7 +247,8 @@ export function AppointmentList({
                 </Button>
               </TableCell>
             </TableRow>
-          ))}
+          ))
+          )}
         </TableBody>
       </Table>
     </div>

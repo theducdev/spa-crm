@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react"
 import { getAppointments, deleteAppointment, Appointment } from "@/lib/appointment-api"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus, Loader2 } from "lucide-react"
 import { AppointmentDialog } from "@/components/appointments/appointment-dialog"
 import { AppointmentList } from "@/components/appointments/appointment-list"
 import { Card, CardContent } from "@/components/ui/card"
@@ -32,29 +32,55 @@ function AppointmentsContent() {
   const [appointments, setAppointments] = useState<AppointmentWithCustomer[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>()
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalAppointments, setTotalAppointments] = useState(0)
+  const [loadingAppointments, setLoadingAppointments] = useState(true)
   
-  const { filters, updateFilters } = useFilterParams({
+  const PAGE_SIZE = 20
+  
+  const { filters, updateFilters: _updateFilters } = useFilterParams({
     fromDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
     toDate: format(endOfMonth(new Date()), "yyyy-MM-dd"),
     showCreatedAt: false as boolean | undefined
   })
 
+  // Reset page về 1 khi đổi filter
+  const updateFilters = (newFilters: any) => {
+    setCurrentPage(1)
+    _updateFilters(newFilters)
+  }
+
   const loadAppointments = useCallback(async () => {
     try {
-      const data = await getAppointments(
+      setLoadingAppointments(true)
+      const result = await getAppointments(
         filters.fromDate && filters.toDate
           ? {
               fromDate: filters.fromDate,
               toDate: filters.toDate,
               filterByCreatedAt: filters.showCreatedAt
             }
-          : undefined
+          : undefined,
+        currentPage,
+        PAGE_SIZE
       )
-      setAppointments(data)
+      
+      if (typeof result === 'object' && 'data' in result && 'total' in result) {
+        setAppointments(result.data)
+        setTotalAppointments(result.total)
+        setTotalPages(Math.max(1, Math.ceil(result.total / PAGE_SIZE)))
+      } else {
+        setAppointments(result as AppointmentWithCustomer[])
+        setTotalAppointments(result.length)
+        setTotalPages(1)
+      }
     } catch (error) {
       console.error("Error loading appointments:", error)
+    } finally {
+      setLoadingAppointments(false)
     }
-  }, [filters])
+  }, [filters, currentPage])
 
   useEffect(() => {
     loadAppointments()
@@ -159,15 +185,22 @@ function AppointmentsContent() {
         </CardContent>
       </Card>
 
-      <div className="flex items-center gap-2 mb-4">
-        <Switch
-          id="show-created-at"
-          checked={filters.showCreatedAt}
-          onCheckedChange={(checked) => updateFilters({ showCreatedAt: checked })}
-        />
-        <Label htmlFor="show-created-at">
-          {filters.showCreatedAt ? "Hiển thị ngày giờ tạo" : "Hiển thị ngày giờ hẹn"}
-        </Label>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Switch
+            id="show-created-at"
+            checked={filters.showCreatedAt}
+            onCheckedChange={(checked) => updateFilters({ showCreatedAt: checked })}
+          />
+          <Label htmlFor="show-created-at">
+            {filters.showCreatedAt ? "Hiển thị ngày giờ tạo" : "Hiển thị ngày giờ hẹn"}
+          </Label>
+        </div>
+        {!loadingAppointments && (
+          <div className="text-sm text-muted-foreground">
+            {totalAppointments} lịch hẹn
+          </div>
+        )}
       </div>
 
       <AppointmentList
@@ -175,7 +208,100 @@ function AppointmentsContent() {
         onEdit={handleEdit}
         onRefresh={loadAppointments}
         showCreatedAt={filters.showCreatedAt}
+        loading={loadingAppointments}
       />
+
+      {/* Phân trang */}
+      {totalPages > 1 && (
+        <div className="flex justify-between items-center mt-4">
+          <div className="text-sm text-muted-foreground">
+            Hiển thị {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, totalAppointments)} trên tổng số {totalAppointments} lịch hẹn
+          </div>
+          <div className="flex items-center gap-1">
+            {/* Nút về trang đầu */}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(1)}
+              className="h-8 w-8 p-0"
+            >
+              «
+            </Button>
+            
+            {/* Nút trang trước */}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(currentPage - 1)}
+              className="h-8 w-8 p-0"
+            >
+              ‹
+            </Button>
+
+            {/* Các nút số trang */}
+            {(() => {
+              const pages = []
+              const maxVisiblePages = 5
+              let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+              let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+              
+              // Điều chỉnh startPage nếu endPage quá gần cuối
+              if (endPage - startPage < maxVisiblePages - 1) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1)
+              }
+
+              for (let i = startPage; i <= endPage; i++) {
+                pages.push(
+                  <Button
+                    key={i}
+                    variant={i === currentPage ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(i)}
+                    className="h-8 w-8 p-0"
+                  >
+                    {i}
+                  </Button>
+                )
+              }
+
+              // Thêm dấu ... nếu có trang sau
+              if (endPage < totalPages) {
+                pages.push(
+                  <span key="ellipsis" className="px-2 text-muted-foreground">
+                    ...
+                  </span>
+                )
+              }
+
+              return pages
+            })()}
+
+            {/* Nút trang sau */}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(currentPage + 1)}
+              className="h-8 w-8 p-0"
+            >
+              ›
+            </Button>
+
+            {/* Nút về trang cuối */}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              className="h-8 w-8 p-0"
+            >
+              »
+            </Button>
+          </div>
+        </div>
+      )}
 
       <AppointmentDialog
         open={dialogOpen}
@@ -215,10 +341,31 @@ function AppointmentsLoading() {
           </div>
         </CardContent>
       </Card>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <Skeleton className="h-4 w-24" />
+      </div>
       <div className="space-y-4">
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full" />
+      </div>
+      <div className="flex justify-between items-center mt-4">
+        <Skeleton className="h-4 w-48" />
+        <div className="flex items-center gap-1">
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-8 w-8" />
+        </div>
       </div>
     </div>
   )

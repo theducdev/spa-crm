@@ -17,7 +17,7 @@ export async function getAppointments(filters?: {
   fromDate?: string
   toDate?: string
   filterByCreatedAt?: boolean 
-}) {
+}, page?: number, pageSize?: number) {
   let query = supabase
     .from("appointments")
     .select(`
@@ -32,7 +32,7 @@ export async function getAppointments(filters?: {
         id,
         full_name
       )
-    `)
+    `, { count: 'exact' })
 
   // Thêm điều kiện lọc theo thời gian
   if (filters?.fromDate) {
@@ -50,7 +50,14 @@ export async function getAppointments(filters?: {
     }
   }
 
-  const { data, error } = await query
+  // Thêm phân trang nếu có
+  if (page && pageSize) {
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
+    query = query.range(from, to)
+  }
+
+  const { data, error, count } = await query
     .order(filters?.filterByCreatedAt ? "created_at" : "appointment_date", { ascending: true })
     .order(filters?.filterByCreatedAt ? "created_at" : "appointment_time", { ascending: true })
 
@@ -58,6 +65,11 @@ export async function getAppointments(filters?: {
     console.error("Supabase error:", error)
     throw error
   }
+  
+  if (page && pageSize) {
+    return { data, total: count || 0 }
+  }
+  
   return data
 }
 
@@ -159,8 +171,12 @@ export async function getStaffStats() {
 
   // Group và đếm số lượng lịch hẹn theo nhân viên
   const stats = data.reduce((acc: any[], curr) => {
+    const staffId = Array.isArray(curr.created_by_user) ? curr.created_by_user[0]?.id : curr.created_by_user?.id
     const existingStaff = acc.find(
-      (item) => item.created_by_user.id === curr.created_by_user.id
+      (item) => {
+        const itemStaffId = Array.isArray(item.created_by_user) ? item.created_by_user[0]?.id : item.created_by_user?.id
+        return itemStaffId === staffId
+      }
     )
     
     if (existingStaff) {
