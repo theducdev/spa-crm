@@ -692,7 +692,10 @@ function TreatmentPageContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <TreatmentProgress treatment={selectedTreatment} />
+                <TreatmentProgress 
+                  treatment={selectedTreatment}
+                  selectedSession={sessions[currentSessionIndex]?.session_number}
+                />
               </CardContent>
             </Card>
 

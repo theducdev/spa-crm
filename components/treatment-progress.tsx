@@ -3,15 +3,31 @@
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Calendar, CheckCircle, Clock } from "lucide-react"
-import type { Treatment } from "@/lib/supabase"
+import type { Treatment, TreatmentSession } from "@/lib/supabase"
+import { getTreatmentSessions } from "@/lib/treatment-api"
+import { useEffect, useState } from "react"
 
 interface TreatmentProgressProps {
   treatment: Treatment
+  selectedSession?: number // Số buổi đang được chọn
 }
 
-export function TreatmentProgress({ treatment }: TreatmentProgressProps) {
+export function TreatmentProgress({ treatment, selectedSession }: TreatmentProgressProps) {
+  const [sessions, setSessions] = useState<TreatmentSession[]>([])
   const progressPercentage = (treatment.current_session / treatment.total_sessions) * 100
   const isCompleted = treatment.current_session >= treatment.total_sessions
+
+  useEffect(() => {
+    async function loadSessions() {
+      try {
+        const data = await getTreatmentSessions(treatment.id)
+        setSessions(data)
+      } catch (error) {
+        console.error("Lỗi khi tải danh sách buổi điều trị:", error)
+      }
+    }
+    loadSessions()
+  }, [treatment.id])
 
   return (
     <div className="space-y-4">
@@ -61,11 +77,35 @@ export function TreatmentProgress({ treatment }: TreatmentProgressProps) {
         )}
       </div>
 
-      {treatment.notes && (
-        <div className="p-3 bg-gray-50 rounded-lg">
-          <p className="text-sm text-muted-foreground mb-1">Công nghệ sử dụng:</p>
-          <p className="text-sm">{treatment.notes}</p>
-        </div>
+      {sessions.length > 0 && (
+        <>
+          {(() => {
+            // Lọc session theo số buổi được chọn
+            const filteredSessions = sessions.filter(
+              session => session.session_number === (selectedSession ?? treatment.current_session)
+            );
+            
+            // Nếu có nhiều session cùng số buổi, lấy session cuối cùng
+            const latestSession = filteredSessions[filteredSessions.length - 1];
+            
+            if (latestSession) {
+              return (
+                <div key={latestSession.id} className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Công nghệ sử dụng - Buổi {latestSession.session_number}:
+                  </p>
+                  <p className="text-sm">{latestSession.notes || "Không có ghi chú"}</p>
+                  {latestSession.creator && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Nhân viên thực hiện: {latestSession.creator.full_name}
+                    </p>
+                  )}
+                </div>
+              );
+            }
+            return null;
+          })()}
+        </>
       )}
     </div>
   )
