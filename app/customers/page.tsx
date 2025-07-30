@@ -122,6 +122,12 @@ function CustomersContent() {
   const [isEditingPhone, setIsEditingPhone] = useState(false)
   const [tempPhone, setTempPhone] = useState("")
 
+  // Phân trang state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCustomers, setTotalCustomers] = useState(0)
+  const PAGE_SIZE = 20
+
   // Dialog states
   const [isAddingCustomer, setIsAddingCustomer] = useState(false)
   const [isEditingCustomer, setIsEditingCustomer] = useState(false)
@@ -129,11 +135,25 @@ function CustomersContent() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
 
   // Replace filters state with useFilterParams
-  const { filters, updateFilters } = useFilterParams<CustomerFilters>({
+  const { filters, updateFilters: _updateFilters } = useFilterParams<CustomerFilters>({
     search: "",
     status: "all",
     tag_id: null
   })
+
+  // Reset page về 1 khi đổi filter (trừ search)
+  const updateFilters = (newFilters: any) => {
+    const shouldResetPage = newFilters.hasOwnProperty('status') || newFilters.hasOwnProperty('tag_id')
+    if (shouldResetPage) {
+      setCurrentPage(1)
+    }
+    _updateFilters(newFilters)
+  }
+
+  // Hàm riêng cho search, không reset page
+  const updateSearch = (search: string) => {
+    _updateFilters({ search })
+  }
 
   // Sync searchTerm with URL search param
   useEffect(() => {
@@ -222,21 +242,29 @@ function CustomersContent() {
   // Handle search with debounce
   useEffect(() => {
     const timer = setTimeout(() => {
-      updateFilters({ search: searchTerm })
+      updateSearch(searchTerm)
     }, 1000)
     return () => clearTimeout(timer)
-  }, [searchTerm, updateFilters])
+  }, [searchTerm])
 
   // Load customers when filters change
   useEffect(() => {
     loadCustomers()
-  }, [filters.search, filters.status, filters.tag_id])
+  }, [filters.search, filters.status, filters.tag_id, currentPage])
 
   const loadCustomers = async () => {
     try {
       setLoading(true)
-      const data = await getCustomers(filters)
+      const { data, total } = await getCustomers(filters, currentPage, PAGE_SIZE)
+      const newTotalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+      if (currentPage > newTotalPages) {
+        setCurrentPage(1)
+        // Không setCustomers ở đây, sẽ tự động gọi lại loadCustomers với page=1
+        return
+      }
       setCustomers(data)
+      setTotalCustomers(total)
+      setTotalPages(newTotalPages)
     } catch (error: any) {
       toast({
         title: "Lỗi",
@@ -1025,7 +1053,7 @@ function CustomersContent() {
       {/* Customer List */}
       <Card>
         <CardHeader>
-          <CardTitle>Danh sách khách hàng ({customers.length})</CardTitle>
+          <CardTitle>Danh sách khách hàng ({totalCustomers})</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -1168,6 +1196,98 @@ function CustomersContent() {
                 </Table>
               </div>
             </>
+          )}
+
+          {/* Phân trang */}
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center mt-4">
+              <div className="text-sm text-muted-foreground">
+                Hiển thị {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, totalCustomers)} trên tổng số {totalCustomers} khách hàng
+              </div>
+              <div className="flex items-center gap-1">
+                {/* Nút về trang đầu */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(1)}
+                  className="h-8 w-8 p-0"
+                >
+                  «
+                </Button>
+                
+                {/* Nút trang trước */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  className="h-8 w-8 p-0"
+                >
+                  ‹
+                </Button>
+
+                {/* Các nút số trang */}
+                {(() => {
+                  const pages = []
+                  const maxVisiblePages = 5
+                  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+                  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+                  
+                  // Điều chỉnh startPage nếu endPage quá gần cuối
+                  if (endPage - startPage < maxVisiblePages - 1) {
+                    startPage = Math.max(1, endPage - maxVisiblePages + 1)
+                  }
+
+                  for (let i = startPage; i <= endPage; i++) {
+                    pages.push(
+                      <Button
+                        key={i}
+                        variant={i === currentPage ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(i)}
+                        className="h-8 w-8 p-0"
+                      >
+                        {i}
+                      </Button>
+                    )
+                  }
+
+                  // Thêm dấu ... nếu có trang sau
+                  if (endPage < totalPages) {
+                    pages.push(
+                      <span key="ellipsis" className="px-2 text-muted-foreground">
+                        ...
+                      </span>
+                    )
+                  }
+
+                  return pages
+                })()}
+
+                {/* Nút trang sau */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  className="h-8 w-8 p-0"
+                >
+                  ›
+                </Button>
+
+                {/* Nút về trang cuối */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  className="h-8 w-8 p-0"
+                >
+                  »
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

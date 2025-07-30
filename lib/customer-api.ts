@@ -37,14 +37,18 @@ export type CustomerFilters = {
   tag_id?: string | null
 }
 
-// Lấy danh sách khách hàng với bộ lọc
-export async function getCustomers(filters: CustomerFilters = {}): Promise<Customer[]> {
+// Lấy danh sách khách hàng với bộ lọc và phân trang
+export async function getCustomers(
+  filters: CustomerFilters = {},
+  page: number = 1,
+  pageSize: number = 20
+): Promise<{ data: Customer[], total: number }> {
   let query = supabase
     .from("customers")
     .select(`
       *,
       tag:customer_tags(id, name, color)
-    `)
+    `, { count: 'exact' })
 
   // Lọc theo trạng thái
   if (filters.status && filters.status !== "all") {
@@ -62,17 +66,21 @@ export async function getCustomers(filters: CustomerFilters = {}): Promise<Custo
     query = query.or(`name.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
   }
 
-  // Sắp xếp theo ngày tạo mới nhất
-  query = query.order("created_at", { ascending: false })
+  // Tính toán range cho phân trang
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
 
-  const { data, error } = await query
+  // Sắp xếp theo ngày tạo mới nhất và áp dụng phân trang
+  const { data, error, count } = await query
+    .order("created_at", { ascending: false })
+    .range(from, to)
 
   if (error) {
     console.error("Error fetching customers:", error)
     throw new Error("Không thể tải danh sách khách hàng")
   }
 
-  return data as Customer[]
+  return { data: data as Customer[], total: count || 0 }
 }
 
 // Lấy thông tin chi tiết của một khách hàng
