@@ -26,12 +26,7 @@ export async function getAppointments(filters?: {
         id,
         name,
         phone,
-        debt,
-        tag:customer_tags (
-          id,
-          name,
-          color
-        )
+        debt
       ),
       created_by_user:users!created_by (
         id,
@@ -194,12 +189,7 @@ export async function getStaffAppointments(staffId: number) {
         id,
         name,
         phone,
-        debt,
-        tag:customer_tags (
-          id,
-          name,
-          color
-        )
+        debt
       ),
       created_by_user:users!created_by (
         id,
@@ -259,11 +249,6 @@ export async function getTodayAppointments() {
     session: appointment.customer?.treatments?.[0] 
       ? `${appointment.customer.treatments[0].current_session}/${appointment.customer.treatments[0].total_sessions}`
       : "-",
-    status: appointment.status,
-    debt: appointment.customer?.debt || 0,
-    tag: appointment.customer?.tag ? {
-      name: appointment.customer.tag.name,
-      color: appointment.customer.tag.color
-    } : null
+         status: appointment.status
   }))
 } 

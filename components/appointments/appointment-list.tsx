@@ -39,11 +39,6 @@ interface AppointmentWithCustomer extends Appointment {
     name: string
     phone: string
     debt: number | null
-    tag?: {
-      id: string
-      name: string
-      color: string
-    }
   }
   created_by_user?: {
     id: number
@@ -134,7 +129,6 @@ export function AppointmentList({
               </>
             )}
             <TableHead className="w-[180px]">Khách hàng</TableHead>
-            <TableHead className="w-[120px]">Tag</TableHead>
             <TableHead className="w-[150px]">Nợ</TableHead>
             <TableHead className="w-[120px]">Trạng thái</TableHead>
             <TableHead className="w-[150px]">Nhân viên</TableHead>
@@ -181,19 +175,6 @@ export function AppointmentList({
                   {appointment.customers?.name}
                   <span className="text-xs text-muted-foreground">(Xem CSKH)</span>
                 </div>
-              </TableCell>
-              <TableCell>
-                {appointment.customers?.tag && (
-                  <div 
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                    style={{ 
-                      backgroundColor: `${appointment.customers.tag.color}20`,
-                      color: appointment.customers.tag.color 
-                    }}
-                  >
-                    {appointment.customers.tag.name}
-                  </div>
-                )}
               </TableCell>
               <TableCell>
                 <div className={cn(

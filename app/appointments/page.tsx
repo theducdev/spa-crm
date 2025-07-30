@@ -21,11 +21,6 @@ interface AppointmentWithCustomer extends Appointment {
     name: string
     phone: string
     debt: number | null
-    tag?: {
-      id: string
-      name: string
-      color: string
-    }
   }
   created_by_user?: {
     id: number
