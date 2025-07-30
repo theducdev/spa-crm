@@ -599,8 +599,16 @@ export async function getTotalRevenue() {
   }
 }
 
-export async function getRecentTreatmentSessions() {
-  const { data, error } = await supabase
+export async function getRecentTreatmentSessions(
+  filters?: {
+    fromDate?: string;
+    toDate?: string;
+    filterByCreatedAt?: boolean;
+  },
+  page: number = 1,
+  pageSize: number = 20
+) {
+  let query = supabase
     .from('treatment_sessions')
     .select(`
       id,
@@ -619,10 +627,34 @@ export async function getRecentTreatmentSessions() {
           phone
         )
       )
-    `)
+    `, { count: 'exact' });
+
+  // Áp dụng bộ lọc ngày nếu có
+  if (filters?.fromDate && filters?.toDate) {
+    const fromDate = new Date(filters.fromDate);
+    const toDate = new Date(filters.toDate);
+    toDate.setHours(23, 59, 59, 999); // Đặt thời gian cuối ngày
+
+    if (filters.filterByCreatedAt) {
+      // Lọc theo ngày tạo
+      query = query
+        .gte('created_at', fromDate.toISOString())
+        .lte('created_at', toDate.toISOString());
+    } else {
+      // Lọc theo ngày điều trị
+      query = query
+        .gte('session_date', fromDate.toISOString().split('T')[0])
+        .lte('session_date', toDate.toISOString().split('T')[0]);
+    }
+  }
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await query
     .order('created_at', { ascending: false })
-    .limit(50);
+    .range(from, to);
 
   if (error) throw error;
-  return data;
+  return { data, total: count || 0 };
 }

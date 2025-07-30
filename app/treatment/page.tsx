@@ -34,6 +34,9 @@ import { maskPhoneNumber } from "@/lib/utils"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense } from "react"
 import { supabase } from "@/lib/supabase"
+import { addDays, format, startOfMonth, endOfMonth } from "date-fns"
+import { Switch } from "@/components/ui/switch"
+import { useFilterParams } from "@/hooks/use-filter-params"
 
 const USAGE_TIMES = [
   { id: "morning", label: "Sáng" },
@@ -116,17 +119,48 @@ function TreatmentPageContent() {
   // State cho danh sách treatment sessions
   const [recentSessions, setRecentSessions] = useState<any[]>([])
   const [loadingSessions, setLoadingSessions] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalSessions, setTotalSessions] = useState(0)
+
+  const PAGE_SIZE = 20
 
   const searchParams = useSearchParams()
   const treatmentId = searchParams.get("id")
+
+  // Bộ lọc
+  const { filters, updateFilters: _updateFilters } = useFilterParams({
+    fromDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
+    toDate: format(endOfMonth(new Date()), "yyyy-MM-dd"),
+    showCreatedAt: false as boolean | undefined
+  })
+
+  // Reset page về 1 khi đổi filter
+  const updateFilters = (newFilters: any) => {
+    setCurrentPage(1)
+    _updateFilters(newFilters)
+  }
 
   // Effect để load danh sách treatment sessions khi không có id
   useEffect(() => {
     const loadRecentSessions = async () => {
       if (!treatmentId) {
+        setLoadingSessions(true)
         try {
-          const data = await getRecentTreatmentSessions()
+          const { data, total } = await getRecentTreatmentSessions(
+            filters.fromDate && filters.toDate
+              ? {
+                  fromDate: filters.fromDate,
+                  toDate: filters.toDate,
+                  filterByCreatedAt: filters.showCreatedAt
+                }
+              : undefined,
+            currentPage,
+            PAGE_SIZE
+          )
           setRecentSessions(data)
+          setTotalSessions(total)
+          setTotalPages(Math.max(1, Math.ceil(total / PAGE_SIZE)))
         } catch (error) {
           console.error('Error loading recent sessions:', error)
           toast({
@@ -137,11 +171,13 @@ function TreatmentPageContent() {
         } finally {
           setLoadingSessions(false)
         }
+      } else {
+        setLoadingSessions(false)
       }
     }
 
     loadRecentSessions()
-  }, [treatmentId])
+  }, [treatmentId, filters, currentPage])
 
   // Load treatments on component mount
   useEffect(() => {
@@ -595,6 +631,37 @@ function TreatmentPageContent() {
     setLightboxOpen(true)
   }
 
+  // Thêm hàm xử lý thay đổi ngày
+  const handleDateChange = (field: "fromDate" | "toDate") => (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateFilters({ [field]: e.target.value })
+  }
+
+  // Thêm các nút shortcut
+  const setDateRange = (days: number) => {
+    const today = new Date()
+    updateFilters({
+      fromDate: format(today, "yyyy-MM-dd"),
+      toDate: format(addDays(today, days), "yyyy-MM-dd")
+    })
+  }
+
+  // Thêm hàm xem buổi điều trị hôm nay
+  const setToday = () => {
+    const today = format(new Date(), "yyyy-MM-dd")
+    updateFilters({
+      fromDate: today,
+      toDate: today
+    })
+  }
+
+  // Thêm hàm xem tất cả buổi điều trị
+  const showAll = () => {
+    updateFilters({
+      fromDate: "",
+      toDate: ""
+    })
+  }
+
   const currentSession = sessions[currentSessionIndex]
   const beforeImage = currentSession?.treatment_images?.find((img) => img.image_type === "before")
   const afterImage = currentSession?.treatment_images?.find((img) => img.image_type === "after")
@@ -613,16 +680,6 @@ function TreatmentPageContent() {
 
   // Render danh sách treatment sessions khi không có id
   if (!treatmentId) {
-    if (loadingSessions) {
-      return (
-        <div className="p-6 flex items-center justify-center min-h-[60vh]">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-            <p>Đang tải danh sách buổi điều trị...</p>
-          </div>
-        </div>
-      )
-    }
 
     return (
       <div className="p-6 space-y-6">
@@ -630,12 +687,80 @@ function TreatmentPageContent() {
           <h1 className="text-2xl font-bold">Danh sách buổi điều trị gần đây</h1>
         </div>
 
+        {/* Thêm bộ lọc thời gian */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="fromDate">
+                  {filters.showCreatedAt ? "Từ ngày tạo" : "Từ ngày điều trị"}
+                </Label>
+                <Input
+                  type="date"
+                  id="fromDate"
+                  value={filters.fromDate}
+                  onChange={handleDateChange("fromDate")}
+                />
+              </div>
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="toDate">
+                  {filters.showCreatedAt ? "Đến ngày tạo" : "Đến ngày điều trị"}
+                </Label>
+                <Input
+                  type="date"
+                  id="toDate"
+                  value={filters.toDate}
+                  onChange={handleDateChange("toDate")}
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <Button variant="outline" onClick={showAll}>Tất cả</Button>
+                <Button variant="outline" onClick={setToday}>Hôm nay</Button>
+                <Button variant="outline" onClick={() => setDateRange(7)}>7 ngày</Button>
+                <Button variant="outline" onClick={() => setDateRange(30)}>30 ngày</Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    const today = new Date()
+                    updateFilters({
+                      fromDate: format(startOfMonth(today), "yyyy-MM-dd"),
+                      toDate: format(endOfMonth(today), "yyyy-MM-dd")
+                    })
+                  }}
+                >
+                  Tháng này
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-created-at"
+              checked={filters.showCreatedAt}
+              onCheckedChange={(checked) => updateFilters({ showCreatedAt: checked })}
+            />
+            <Label htmlFor="show-created-at">
+              {filters.showCreatedAt ? "Hiển thị ngày giờ tạo" : "Hiển thị ngày giờ điều trị"}
+            </Label>
+          </div>
+          {!loadingSessions && (
+            <div className="text-sm text-muted-foreground">
+              {totalSessions} buổi điều trị
+            </div>
+          )}
+        </div>
+
         <div className="rounded-md border shadow-sm">
           <div className="relative w-full overflow-auto">
             <table className="w-full caption-bottom text-sm">
               <thead className="[&_tr]:border-b bg-muted/50">
                 <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Ngày tạo</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
+                    {filters.showCreatedAt ? "Ngày tạo" : "Ngày điều trị"}
+                  </th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Khách hàng</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Liệu trình</th>
                   <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Ngày điều trị</th>
@@ -644,7 +769,21 @@ function TreatmentPageContent() {
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
-                {recentSessions.map((session) => (
+                {recentSessions.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                      {loadingSessions ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Đang tải...</span>
+                        </div>
+                      ) : (
+                        "Không có buổi điều trị nào trong khoảng thời gian đã chọn"
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  recentSessions.map((session) => (
                   <tr
                     key={session.id}
                     className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted cursor-pointer"
@@ -652,17 +791,27 @@ function TreatmentPageContent() {
                   >
                     <td className="p-4 align-top">
                       <div className="text-sm">
-                        {new Date(session.created_at || '').toLocaleDateString('vi-VN', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit',
-                        })}
+                        {filters.showCreatedAt 
+                          ? new Date(session.created_at || '').toLocaleDateString('vi-VN', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                            })
+                          : new Date(session.session_date || '').toLocaleDateString('vi-VN', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                            })
+                        }
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {new Date(session.created_at || '').toLocaleTimeString('vi-VN', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        {filters.showCreatedAt 
+                          ? new Date(session.created_at || '').toLocaleTimeString('vi-VN', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })
+                          : null
+                        }
                       </div>
                     </td>
                     <td className="p-4 align-top">
@@ -705,11 +854,103 @@ function TreatmentPageContent() {
                       <div className="text-sm whitespace-pre-wrap">{session.notes}</div>
                     </td>
                   </tr>
-                ))}
+                ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
+        {/* Phân trang */}
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-muted-foreground">
+              Hiển thị {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, totalSessions)} trên tổng số {totalSessions} buổi điều trị
+            </div>
+            <div className="flex items-center gap-1">
+              {/* Nút về trang đầu */}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+                className="h-8 w-8 p-0"
+              >
+                «
+              </Button>
+              
+              {/* Nút trang trước */}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(currentPage - 1)}
+                className="h-8 w-8 p-0"
+              >
+                ‹
+              </Button>
+
+              {/* Các nút số trang */}
+              {(() => {
+                const pages = []
+                const maxVisiblePages = 5
+                let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+                let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+                
+                // Điều chỉnh startPage nếu endPage quá gần cuối
+                if (endPage - startPage < maxVisiblePages - 1) {
+                  startPage = Math.max(1, endPage - maxVisiblePages + 1)
+                }
+
+                for (let i = startPage; i <= endPage; i++) {
+                  pages.push(
+                    <Button
+                      key={i}
+                      variant={i === currentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(i)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {i}
+                    </Button>
+                  )
+                }
+
+                // Thêm dấu ... nếu có trang sau
+                if (endPage < totalPages) {
+                  pages.push(
+                    <span key="ellipsis" className="px-2 text-muted-foreground">
+                      ...
+                    </span>
+                  )
+                }
+
+                return pages
+              })()}
+
+              {/* Nút trang sau */}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(currentPage + 1)}
+                className="h-8 w-8 p-0"
+              >
+                ›
+              </Button>
+
+              {/* Nút về trang cuối */}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="h-8 w-8 p-0"
+              >
+                »
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
