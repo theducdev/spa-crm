@@ -364,7 +364,7 @@ function TreatmentPageContent() {
           appointment_date: sessionData.next_appointment,
           appointment_time: "09:00", // Mặc định 9:00 sáng
           status: "pending",
-          notes: `Lịch hẹn tự động được tạo từ buổi điều trị ${currentSession.session_number}/${selectedTreatment.total_sessions} - ${selectedTreatment.treatment_name}`,
+          notes: `Buổi điều trị ${currentSession.session_number}/${selectedTreatment.total_sessions} - ${selectedTreatment.treatment_name}`,
           created_by: currentUser.id
         })
       }

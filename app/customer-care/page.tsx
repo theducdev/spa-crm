@@ -42,6 +42,7 @@ import { format } from "date-fns"
 import { vi } from "date-fns/locale"
 import { formatCurrency } from "@/lib/utils"
 import { getTreatmentsByCustomer, getTreatmentSessions, upsertTreatmentSession } from "@/lib/treatment-api"
+import { createAppointment } from "@/lib/appointment-api"
 import type { Treatment, TreatmentSession } from "@/lib/supabase"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -107,6 +108,13 @@ function CustomerCareContent() {
   } | null>(null)
   const [editingSession, setEditingSession] = useState<TreatmentSession | null>(null)
   const [editingAfterSalesCare, setEditingAfterSalesCare] = useState("")
+  const [editingNextAppointment, setEditingNextAppointment] = useState("")
+  const [currentEditingSession, setCurrentEditingSession] = useState<TreatmentSession | null>(null)
+  const [appointmentCreated, setAppointmentCreated] = useState<{
+    success: boolean
+    date: string
+    message: string
+  } | null>(null)
 
   const { filters, updateFilters } = useFilterParams<CustomerCareFilters>({
     search: "",
@@ -251,14 +259,16 @@ function CustomerCareContent() {
   // Mutation để cập nhật thông tin buổi điều trị
   const updateSessionMutation = useMutation({
     mutationFn: (sessionData: Partial<TreatmentSession>) => upsertTreatmentSession(sessionData),
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["treatmentSessions"] })
+      
       toast({
         title: "Đã cập nhật",
-        description: "Thông tin chăm sóc sau điều trị đã được cập nhật",
+        description: "Thông tin buổi điều trị đã được cập nhật",
         variant: "default",
       })
       setEditingSession(null)
+      setCurrentEditingSession(null)
     },
     onError: (error) => {
       toast({
@@ -322,13 +332,45 @@ function CustomerCareContent() {
     }
   }
 
-  const handleUpdateAfterSalesCare = async () => {
-    if (!editingSession) return
+  const handleUpdateSessionInfo = async () => {
+    if (!editingSession || !currentEditingSession) return
 
     await updateSessionMutation.mutateAsync({
       id: editingSession.id,
-      after_sales_care: editingAfterSalesCare
+      after_sales_care: editingAfterSalesCare,
+      next_appointment: editingNextAppointment || null
     })
+
+    // Tự động tạo lịch hẹn nếu có next_appointment và next_appointment đã thay đổi
+    if (editingNextAppointment && 
+        selectedCustomer?.id && 
+        editingNextAppointment !== currentEditingSession.next_appointment) {
+      try {
+        await createAppointment({
+          customer_id: selectedCustomer.id,
+          appointment_date: editingNextAppointment,
+          appointment_time: "09:00", // Mặc định 9:00 sáng
+          status: "pending",
+          notes: `Lịch hẹn tự động được tạo từ buổi điều trị ${editingSession.session_number} - ${selectedTreatment?.treatment_name}`,
+          created_by: 1 // Tạm thời hardcode, có thể cần lấy từ context user
+        })
+        
+        // Hiển thị thông báo tạo lịch hẹn thành công
+        setAppointmentCreated({
+          success: true,
+          date: editingNextAppointment,
+          message: `Đã tạo lịch hẹn thành công cho ${selectedCustomer.name} vào ngày ${format(new Date(editingNextAppointment), "dd/MM/yyyy", { locale: vi })} lúc 09:00`
+        })
+      } catch (error) {
+        console.error("Lỗi tạo lịch hẹn:", error)
+        // Hiển thị thông báo lỗi tạo lịch hẹn
+        setAppointmentCreated({
+          success: false,
+          date: editingNextAppointment,
+          message: "Không thể tạo lịch hẹn. Vui lòng thử lại sau."
+        })
+      }
+    }
   }
 
   return (
@@ -574,7 +616,9 @@ function CustomerCareContent() {
                                       className="h-6 px-2"
                                       onClick={() => {
                                         setEditingSession(session)
+                                        setCurrentEditingSession(session)
                                         setEditingAfterSalesCare(session.after_sales_care || "")
+                                        setEditingNextAppointment(session.next_appointment || "")
                                       }}
                                     >
                                       <Edit2 className="h-3 w-3" />
@@ -586,12 +630,31 @@ function CustomerCareContent() {
                                     <p className="text-muted-foreground italic mt-1">Chưa có thông tin</p>
                                   )}
                                 </div>
-                                {session.next_appointment && (
-                                  <p className="text-sm">
-                                    <strong>Lịch hẹn tiếp theo:</strong>{" "}
-                                    {format(new Date(session.next_appointment), "dd/MM/yyyy", { locale: vi })}
-                                  </p>
-                                )}
+                                <div className="text-sm mb-2">
+                                  <div className="flex items-center justify-between">
+                                    <strong>Lịch hẹn tiếp theo:</strong>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2"
+                                      onClick={() => {
+                                        setEditingSession(session)
+                                        setCurrentEditingSession(session)
+                                        setEditingAfterSalesCare(session.after_sales_care || "")
+                                        setEditingNextAppointment(session.next_appointment || "")
+                                      }}
+                                    >
+                                      <Edit2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                  {session.next_appointment ? (
+                                    <p className="mt-1">
+                                      {format(new Date(session.next_appointment), "dd/MM/yyyy", { locale: vi })}
+                                    </p>
+                                  ) : (
+                                    <p className="text-muted-foreground italic mt-1">Chưa có lịch hẹn</p>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -688,29 +751,49 @@ function CustomerCareContent() {
         </Card>
       </div>
 
-      {/* Dialog chỉnh sửa chăm sóc sau điều trị */}
-      <Dialog open={!!editingSession} onOpenChange={(open) => !open && setEditingSession(null)}>
-        <DialogContent>
+      {/* Dialog chỉnh sửa thông tin buổi điều trị */}
+      <Dialog open={!!editingSession} onOpenChange={(open) => {
+        if (!open) {
+          setEditingSession(null)
+          setCurrentEditingSession(null)
+        }
+      }}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Chỉnh sửa chăm sóc sau điều trị</DialogTitle>
+            <DialogTitle>Chỉnh sửa thông tin buổi điều trị</DialogTitle>
             <DialogDescription>
               Buổi {editingSession?.session_number} - {editingSession?.session_date && format(new Date(editingSession.session_date), "dd/MM/yyyy", { locale: vi })}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Textarea
-              value={editingAfterSalesCare}
-              onChange={(e) => setEditingAfterSalesCare(e.target.value)}
-              placeholder="Nhập nội dung chăm sóc sau điều trị..."
-              rows={5}
-            />
+          <div className="py-4 space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Chăm sóc sau điều trị</label>
+              <Textarea
+                value={editingAfterSalesCare}
+                onChange={(e) => setEditingAfterSalesCare(e.target.value)}
+                placeholder="Nhập nội dung chăm sóc sau điều trị..."
+                rows={3}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Lịch hẹn tiếp theo</label>
+              <Input
+                type="date"
+                value={editingNextAppointment}
+                onChange={(e) => setEditingNextAppointment(e.target.value)}
+                placeholder="Chọn ngày hẹn tiếp theo..."
+              />
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingSession(null)}>
+            <Button variant="outline" onClick={() => {
+              setEditingSession(null)
+              setCurrentEditingSession(null)
+            }}>
               Hủy
             </Button>
             <Button 
-              onClick={handleUpdateAfterSalesCare}
+              onClick={handleUpdateSessionInfo}
               disabled={updateSessionMutation.isPending}
             >
               {updateSessionMutation.isPending ? (
@@ -728,6 +811,23 @@ function CustomerCareContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog thông báo tạo lịch hẹn */}
+      <AlertDialog open={!!appointmentCreated} onOpenChange={() => setAppointmentCreated(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {appointmentCreated?.success ? "Tạo lịch hẹn thành công" : "Lỗi tạo lịch hẹn"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {appointmentCreated?.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Đóng</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
