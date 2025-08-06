@@ -142,6 +142,7 @@ function TreatmentPageContent() {
 
   const [currentPage, setCurrentPage] = useState(filters.page || 1)
   const [searchTerm, setSearchTerm] = useState(filters.search || "")
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(filters.search || "")
 
   // Đồng bộ searchTerm với filters.search
   useEffect(() => {
@@ -152,6 +153,22 @@ function TreatmentPageContent() {
   useEffect(() => {
     setCurrentPage(filters.page || 1)
   }, [filters.page])
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  // Đồng bộ debouncedSearchTerm với filters.search
+  useEffect(() => {
+    if (debouncedSearchTerm !== filters.search) {
+      updateFilters({ search: debouncedSearchTerm })
+    }
+  }, [debouncedSearchTerm])
 
   // Reset page về 1 khi đổi filter (trừ khi thay đổi page)
   const updateFilters = (newFilters: any) => {
@@ -274,6 +291,8 @@ function TreatmentPageContent() {
       loadPageSessions()
       setPreviousSearchTerm("")
     }
+    // Tắt loading sau khi search
+    setIsSearching(false)
   }, [filters.search, loadAllSessions, loadPageSessions, previousSearchTerm])
 
   // Effect riêng để xử lý thay đổi trang khi không search
@@ -810,9 +829,7 @@ function TreatmentPageContent() {
                     onChange={(e) => {
                       const newSearchTerm = e.target.value
                       setSearchTerm(newSearchTerm)
-                      updateFilters({ search: newSearchTerm })
                       setIsSearching(true)
-                      setTimeout(() => setIsSearching(false), 1000)
                     }}
                   />
                 </div>
