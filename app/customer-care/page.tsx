@@ -351,7 +351,7 @@ function CustomerCareContent() {
           appointment_date: editingNextAppointment,
           appointment_time: "09:00", // Mặc định 9:00 sáng
           status: "pending",
-          notes: `Lịch hẹn tự động được tạo từ buổi điều trị ${editingSession.session_number} - ${selectedTreatment?.treatment_name}`,
+          notes: `Buổi điều trị ${editingSession.session_number} - ${selectedTreatment?.treatment_name}`,
           created_by: 1 // Tạm thời hardcode, có thể cần lấy từ context user
         })
         

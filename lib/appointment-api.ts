@@ -23,7 +23,7 @@ export interface Appointment {
 export async function getAppointments(filters?: { 
   fromDate?: string
   toDate?: string
-  filterByCreatedAt?: boolean 
+  filterByCreatedAt?: boolean
 }, page?: number, pageSize?: number) {
   let query = supabase
     .from("appointments")
@@ -62,6 +62,8 @@ export async function getAppointments(filters?: {
       query = query.lte("appointment_date", filters.toDate)
     }
   }
+
+
 
   // Thêm phân trang nếu có
   if (page && pageSize) {
