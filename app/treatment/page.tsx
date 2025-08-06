@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Save, Camera, User, Calendar, ChevronLeft, ChevronRight, X, Loader2, CheckCircle2, Circle } from "lucide-react"
+import { Upload, Save, Camera, User, Calendar, ChevronLeft, ChevronRight, X, Loader2, CheckCircle2, Circle, Search } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Combobox } from "@/components/ui/combobox"
 import { useToast } from "@/hooks/use-toast"
@@ -119,9 +119,12 @@ function TreatmentPageContent() {
   // State cho danh sách treatment sessions
   const [recentSessions, setRecentSessions] = useState<any[]>([])
   const [loadingSessions, setLoadingSessions] = useState(true)
-  const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalSessions, setTotalSessions] = useState(0)
+  const [isSearching, setIsSearching] = useState(false)
+  const [previousSearchTerm, setPreviousSearchTerm] = useState("")
+  const [allSessions, setAllSessions] = useState<any[]>([])
+  const [currentPageSessions, setCurrentPageSessions] = useState<any[]>([])
 
   const PAGE_SIZE = 20
 
@@ -132,52 +135,153 @@ function TreatmentPageContent() {
   const { filters, updateFilters: _updateFilters } = useFilterParams({
     fromDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
     toDate: format(endOfMonth(new Date()), "yyyy-MM-dd"),
-    showCreatedAt: false as boolean | undefined
+    showCreatedAt: false as boolean | undefined,
+    search: "",
+    page: 1
   })
 
-  // Reset page về 1 khi đổi filter
+  const [currentPage, setCurrentPage] = useState(filters.page || 1)
+  const [searchTerm, setSearchTerm] = useState(filters.search || "")
+
+  // Đồng bộ searchTerm với filters.search
+  useEffect(() => {
+    setSearchTerm(filters.search || "")
+  }, [filters.search])
+
+  // Đồng bộ currentPage với filters.page
+  useEffect(() => {
+    setCurrentPage(filters.page || 1)
+  }, [filters.page])
+
+  // Reset page về 1 khi đổi filter (trừ khi thay đổi page)
   const updateFilters = (newFilters: any) => {
-    setCurrentPage(1)
-    _updateFilters(newFilters)
+    if (!('page' in newFilters)) {
+      setCurrentPage(1)
+      _updateFilters({ ...newFilters, page: 1 })
+    } else {
+      _updateFilters(newFilters)
+    }
   }
 
-  // Effect để load danh sách treatment sessions khi không có id
-  useEffect(() => {
-    const loadRecentSessions = async () => {
-      if (!treatmentId) {
-        setLoadingSessions(true)
-        try {
-          const { data, total } = await getRecentTreatmentSessions(
-            filters.fromDate && filters.toDate
-              ? {
-                  fromDate: filters.fromDate,
-                  toDate: filters.toDate,
-                  filterByCreatedAt: filters.showCreatedAt
-                }
-              : undefined,
-            currentPage,
-            PAGE_SIZE
-          )
-          setRecentSessions(data)
-          setTotalSessions(total)
-          setTotalPages(Math.max(1, Math.ceil(total / PAGE_SIZE)))
-        } catch (error) {
-          console.error('Error loading recent sessions:', error)
-          toast({
-            title: "Lỗi",
-            description: "Không thể tải danh sách buổi điều trị",
-            variant: "destructive",
-          })
-        } finally {
-          setLoadingSessions(false)
-        }
-      } else {
+  // Load tất cả sessions khi có search hoặc thay đổi filter
+  const loadAllSessions = useCallback(async () => {
+    if (!treatmentId) {
+      setLoadingSessions(true)
+      try {
+        const { data, total } = await getRecentTreatmentSessions(
+          filters.fromDate && filters.toDate
+            ? {
+                fromDate: filters.fromDate,
+                toDate: filters.toDate,
+                filterByCreatedAt: filters.showCreatedAt
+              }
+            : undefined,
+          1,
+          999999
+        )
+        setAllSessions(data)
+        setTotalSessions(data.length)
+      } catch (error) {
+        console.error('Error loading all sessions:', error)
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải danh sách buổi điều trị",
+          variant: "destructive",
+        })
+      } finally {
         setLoadingSessions(false)
       }
     }
+  }, [treatmentId, filters])
 
-    loadRecentSessions()
+  // Load sessions theo trang khi không search
+  const loadPageSessions = useCallback(async () => {
+    if (!treatmentId) {
+      setLoadingSessions(true)
+      try {
+        const { data, total } = await getRecentTreatmentSessions(
+          filters.fromDate && filters.toDate
+            ? {
+                fromDate: filters.fromDate,
+                toDate: filters.toDate,
+                filterByCreatedAt: filters.showCreatedAt
+              }
+            : undefined,
+          currentPage,
+          PAGE_SIZE
+        )
+        setCurrentPageSessions(data)
+        setTotalSessions(total)
+        setTotalPages(Math.max(1, Math.ceil(total / PAGE_SIZE)))
+      } catch (error) {
+        console.error('Error loading page sessions:', error)
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải danh sách buổi điều trị",
+          variant: "destructive",
+        })
+      } finally {
+        setLoadingSessions(false)
+      }
+    }
   }, [treatmentId, filters, currentPage])
+
+
+
+  // Filter sessions based on search term
+  const filteredSessions = useMemo(() => {
+    if (!filters.search) return allSessions
+    
+    const term = filters.search.toLowerCase()
+    return allSessions.filter(session => 
+      session.treatment?.customer?.name?.toLowerCase().includes(term) ||
+      session.treatment?.customer?.phone?.includes(term)
+    )
+  }, [allSessions, filters.search])
+
+  // Tính toán phân trang cho dữ liệu đã filter
+  const paginatedSessions = useMemo(() => {
+    if (!filters.search) {
+      // Nếu không search, sử dụng dữ liệu từ API
+      return currentPageSessions
+    }
+    
+    // Nếu đang search, phân trang ở client side
+    const startIndex = (currentPage - 1) * PAGE_SIZE
+    const endIndex = startIndex + PAGE_SIZE
+    return filteredSessions.slice(startIndex, endIndex)
+  }, [currentPageSessions, filteredSessions, currentPage, filters.search])
+
+  // Tính toán tổng số trang cho dữ liệu đã filter
+  const totalPagesForFiltered = useMemo(() => {
+    if (!filters.search) {
+      return Math.max(1, Math.ceil(totalSessions / PAGE_SIZE))
+    }
+    return Math.max(1, Math.ceil(filteredSessions.length / PAGE_SIZE))
+  }, [filteredSessions.length, totalSessions, filters.search])
+
+  // Effect để load data khi thay đổi filter hoặc search
+  useEffect(() => {
+    if (filters.search) {
+      loadAllSessions()
+      // Chỉ reset về trang 1 khi thay đổi search term, không phải khi thay đổi trang
+      if (filters.search !== previousSearchTerm) {
+        setCurrentPage(1)
+        updateFilters({ page: 1 })
+        setPreviousSearchTerm(filters.search)
+      }
+    } else {
+      loadPageSessions()
+      setPreviousSearchTerm("")
+    }
+  }, [filters.search, loadAllSessions, loadPageSessions, previousSearchTerm])
+
+  // Effect riêng để xử lý thay đổi trang khi không search
+  useEffect(() => {
+    if (!filters.search && !treatmentId) {
+      loadPageSessions()
+    }
+  }, [currentPage, filters.search, loadPageSessions, treatmentId])
 
   // Load treatments on component mount
   useEffect(() => {
@@ -690,46 +794,71 @@ function TreatmentPageContent() {
         {/* Thêm bộ lọc thời gian */}
         <Card>
           <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="fromDate">
-                  {filters.showCreatedAt ? "Từ ngày tạo" : "Từ ngày điều trị"}
-                </Label>
-                <Input
-                  type="date"
-                  id="fromDate"
-                  value={filters.fromDate}
-                  onChange={handleDateChange("fromDate")}
-                />
+            <div className="flex flex-col gap-4">
+              {/* Ô tìm kiếm */}
+              <div className="flex-1">
+                <div className="relative">
+                  {isSearching ? (
+                    <Loader2 className="absolute left-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  )}
+                  <Input 
+                    placeholder="Tìm theo tên hoặc số điện thoại khách hàng..." 
+                    className="pl-10" 
+                    value={searchTerm}
+                    onChange={(e) => {
+                      const newSearchTerm = e.target.value
+                      setSearchTerm(newSearchTerm)
+                      updateFilters({ search: newSearchTerm })
+                      setIsSearching(true)
+                      setTimeout(() => setIsSearching(false), 1000)
+                    }}
+                  />
+                </div>
               </div>
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="toDate">
-                  {filters.showCreatedAt ? "Đến ngày tạo" : "Đến ngày điều trị"}
-                </Label>
-                <Input
-                  type="date"
-                  id="toDate"
-                  value={filters.toDate}
-                  onChange={handleDateChange("toDate")}
-                />
-              </div>
-              <div className="flex items-end gap-2">
-                <Button variant="outline" onClick={showAll}>Tất cả</Button>
-                <Button variant="outline" onClick={setToday}>Hôm nay</Button>
-                <Button variant="outline" onClick={() => setDateRange(7)}>7 ngày</Button>
-                <Button variant="outline" onClick={() => setDateRange(30)}>30 ngày</Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    const today = new Date()
-                    updateFilters({
-                      fromDate: format(startOfMonth(today), "yyyy-MM-dd"),
-                      toDate: format(endOfMonth(today), "yyyy-MM-dd")
-                    })
-                  }}
-                >
-                  Tháng này
-                </Button>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="fromDate">
+                    {filters.showCreatedAt ? "Từ ngày tạo" : "Từ ngày điều trị"}
+                  </Label>
+                  <Input
+                    type="date"
+                    id="fromDate"
+                    value={filters.fromDate}
+                    onChange={handleDateChange("fromDate")}
+                  />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="toDate">
+                    {filters.showCreatedAt ? "Đến ngày tạo" : "Đến ngày điều trị"}
+                  </Label>
+                  <Input
+                    type="date"
+                    id="toDate"
+                    value={filters.toDate}
+                    onChange={handleDateChange("toDate")}
+                  />
+                </div>
+                <div className="flex items-end gap-2">
+                  <Button variant="outline" onClick={showAll}>Tất cả</Button>
+                  <Button variant="outline" onClick={setToday}>Hôm nay</Button>
+                  <Button variant="outline" onClick={() => setDateRange(7)}>7 ngày</Button>
+                  <Button variant="outline" onClick={() => setDateRange(30)}>30 ngày</Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      const today = new Date()
+                      updateFilters({
+                        fromDate: format(startOfMonth(today), "yyyy-MM-dd"),
+                        toDate: format(endOfMonth(today), "yyyy-MM-dd")
+                      })
+                    }}
+                  >
+                    Tháng này
+                  </Button>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -748,7 +877,7 @@ function TreatmentPageContent() {
           </div>
           {!loadingSessions && (
             <div className="text-sm text-muted-foreground">
-              {totalSessions} buổi điều trị
+              {filters.search ? `${filteredSessions.length} / ${totalSessions}` : totalSessions} buổi điều trị
             </div>
           )}
         </div>
@@ -770,7 +899,7 @@ function TreatmentPageContent() {
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
-                {recentSessions.length === 0 ? (
+                {paginatedSessions.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-muted-foreground">
                       {loadingSessions ? (
@@ -784,7 +913,7 @@ function TreatmentPageContent() {
                     </td>
                   </tr>
                 ) : (
-                  recentSessions.map((session) => (
+                  paginatedSessions.map((session) => (
                   <tr
                     key={session.id}
                     className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted cursor-pointer"
@@ -867,10 +996,13 @@ function TreatmentPageContent() {
           </div>
         </div>
         {/* Phân trang */}
-        {totalPages > 1 && (
+        {totalPagesForFiltered > 1 && (
           <div className="flex justify-between items-center mt-4">
             <div className="text-sm text-muted-foreground">
-              Hiển thị {(currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, totalSessions)} trên tổng số {totalSessions} buổi điều trị
+              {filters.search 
+                ? `Hiển thị ${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filteredSessions.length)} trên tổng số ${filteredSessions.length} buổi điều trị`
+                : `Hiển thị ${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, totalSessions)} trên tổng số ${totalSessions} buổi điều trị`
+              }
             </div>
             <div className="flex items-center gap-1">
               {/* Nút về trang đầu */}
@@ -878,7 +1010,10 @@ function TreatmentPageContent() {
                 variant="outline"
                 size="sm"
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage(1)}
+                onClick={() => {
+                  setCurrentPage(1)
+                  updateFilters({ page: 1 })
+                }}
                 className="h-8 w-8 p-0"
               >
                 «
@@ -889,7 +1024,11 @@ function TreatmentPageContent() {
                 variant="outline"
                 size="sm"
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage(currentPage - 1)}
+                onClick={() => {
+                  const newPage = currentPage - 1
+                  setCurrentPage(newPage)
+                  updateFilters({ page: newPage })
+                }}
                 className="h-8 w-8 p-0"
               >
                 ‹
@@ -900,7 +1039,7 @@ function TreatmentPageContent() {
                 const pages = []
                 const maxVisiblePages = 5
                 let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
-                let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+                let endPage = Math.min(totalPagesForFiltered, startPage + maxVisiblePages - 1)
                 
                 // Điều chỉnh startPage nếu endPage quá gần cuối
                 if (endPage - startPage < maxVisiblePages - 1) {
@@ -913,7 +1052,10 @@ function TreatmentPageContent() {
                       key={i}
                       variant={i === currentPage ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setCurrentPage(i)}
+                      onClick={() => {
+                        setCurrentPage(i)
+                        updateFilters({ page: i })
+                      }}
                       className="h-8 w-8 p-0"
                     >
                       {i}
@@ -922,7 +1064,7 @@ function TreatmentPageContent() {
                 }
 
                 // Thêm dấu ... nếu có trang sau
-                if (endPage < totalPages) {
+                if (endPage < totalPagesForFiltered) {
                   pages.push(
                     <span key="ellipsis" className="px-2 text-muted-foreground">
                       ...
@@ -937,8 +1079,12 @@ function TreatmentPageContent() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPagesForFiltered}
+                onClick={() => {
+                  const newPage = currentPage + 1
+                  setCurrentPage(newPage)
+                  updateFilters({ page: newPage })
+                }}
                 className="h-8 w-8 p-0"
               >
                 ›
@@ -948,8 +1094,11 @@ function TreatmentPageContent() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPagesForFiltered}
+                onClick={() => {
+                  setCurrentPage(totalPagesForFiltered)
+                  updateFilters({ page: totalPagesForFiltered })
+                }}
                 className="h-8 w-8 p-0"
               >
                 »

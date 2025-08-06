@@ -32,12 +32,10 @@ function AppointmentsContent() {
   const [appointments, setAppointments] = useState<AppointmentWithCustomer[]>([])
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>()
-  const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalAppointments, setTotalAppointments] = useState(0)
   const [loadingAppointments, setLoadingAppointments] = useState(true)
   const [isSearching, setIsSearching] = useState(false)
-  const [searchTerm, setSearchTerm] = useState("")
   const [previousSearchTerm, setPreviousSearchTerm] = useState("")
   const [allAppointments, setAllAppointments] = useState<AppointmentWithCustomer[]>([])
   const [currentPageAppointments, setCurrentPageAppointments] = useState<AppointmentWithCustomer[]>([])
@@ -47,13 +45,32 @@ function AppointmentsContent() {
   const { filters, updateFilters: _updateFilters } = useFilterParams({
     fromDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
     toDate: format(endOfMonth(new Date()), "yyyy-MM-dd"),
-    showCreatedAt: false as boolean | undefined
+    showCreatedAt: false as boolean | undefined,
+    search: "",
+    page: 1
   })
 
-  // Reset page về 1 khi đổi filter
+  const [searchTerm, setSearchTerm] = useState(filters.search || "")
+  const [currentPage, setCurrentPage] = useState(filters.page || 1)
+
+  // Đồng bộ searchTerm với filters.search
+  useEffect(() => {
+    setSearchTerm(filters.search || "")
+  }, [filters.search])
+
+  // Đồng bộ currentPage với filters.page
+  useEffect(() => {
+    setCurrentPage(filters.page || 1)
+  }, [filters.page])
+
+  // Reset page về 1 khi đổi filter (trừ khi thay đổi page)
   const updateFilters = (newFilters: any) => {
-    setCurrentPage(1)
-    _updateFilters(newFilters)
+    if (!('page' in newFilters)) {
+      setCurrentPage(1)
+      _updateFilters({ ...newFilters, page: 1 })
+    } else {
+      _updateFilters(newFilters)
+    }
   }
 
   // Load tất cả appointments khi có search hoặc thay đổi filter
@@ -68,7 +85,7 @@ function AppointmentsContent() {
           filterByCreatedAt: filters.showCreatedAt
         },
         1,
-        1000
+        999999
       )
       
       let allData: AppointmentWithCustomer[] = []
@@ -126,18 +143,18 @@ function AppointmentsContent() {
 
   // Filter appointments based on search term
   const filteredAppointments = useMemo(() => {
-    if (!searchTerm) return allAppointments
+    if (!filters.search) return allAppointments
     
-    const term = searchTerm.toLowerCase()
+    const term = filters.search.toLowerCase()
     return allAppointments.filter(appointment => 
       appointment.customers?.name?.toLowerCase().includes(term) ||
       appointment.customers?.phone?.includes(term)
     )
-  }, [allAppointments, searchTerm])
+  }, [allAppointments, filters.search])
 
   // Tính toán phân trang cho dữ liệu đã filter
   const paginatedAppointments = useMemo(() => {
-    if (!searchTerm) {
+    if (!filters.search) {
       // Nếu không search, sử dụng dữ liệu từ API
       return currentPageAppointments
     }
@@ -146,37 +163,38 @@ function AppointmentsContent() {
     const startIndex = (currentPage - 1) * PAGE_SIZE
     const endIndex = startIndex + PAGE_SIZE
     return filteredAppointments.slice(startIndex, endIndex)
-  }, [currentPageAppointments, filteredAppointments, currentPage, searchTerm])
+  }, [currentPageAppointments, filteredAppointments, currentPage, filters.search])
 
   // Tính toán tổng số trang cho dữ liệu đã filter
   const totalPagesForFiltered = useMemo(() => {
-    if (!searchTerm) {
+    if (!filters.search) {
       return Math.max(1, Math.ceil(totalAppointments / PAGE_SIZE))
     }
     return Math.max(1, Math.ceil(filteredAppointments.length / PAGE_SIZE))
-  }, [filteredAppointments.length, totalAppointments, searchTerm])
+  }, [filteredAppointments.length, totalAppointments, filters.search])
 
   // Effect để load data khi thay đổi filter hoặc search
   useEffect(() => {
-    if (searchTerm) {
+    if (filters.search) {
       loadAllAppointments()
       // Chỉ reset về trang 1 khi thay đổi search term, không phải khi thay đổi trang
-      if (searchTerm !== previousSearchTerm) {
+      if (filters.search !== previousSearchTerm) {
         setCurrentPage(1)
-        setPreviousSearchTerm(searchTerm)
+        updateFilters({ page: 1 })
+        setPreviousSearchTerm(filters.search)
       }
     } else {
       loadPageAppointments()
       setPreviousSearchTerm("")
     }
-  }, [searchTerm, loadAllAppointments, loadPageAppointments, previousSearchTerm])
+  }, [filters.search, loadAllAppointments, loadPageAppointments, previousSearchTerm])
 
   // Effect riêng để xử lý thay đổi trang khi không search
   useEffect(() => {
-    if (!searchTerm) {
+    if (!filters.search) {
       loadPageAppointments()
     }
-  }, [currentPage, searchTerm, loadPageAppointments])
+  }, [currentPage, filters.search, loadPageAppointments])
 
   const handleEdit = (id: string) => {
     setSelectedAppointmentId(id)
@@ -246,7 +264,9 @@ function AppointmentsContent() {
                    className="pl-10" 
                    value={searchTerm}
                    onChange={(e) => {
-                     setSearchTerm(e.target.value)
+                     const newSearchTerm = e.target.value
+                     setSearchTerm(newSearchTerm)
+                     updateFilters({ search: newSearchTerm })
                      setIsSearching(true)
                      setTimeout(() => setIsSearching(false), 500)
                    }}
@@ -313,7 +333,7 @@ function AppointmentsContent() {
         </div>
         {!loadingAppointments && (
           <div className="text-sm text-muted-foreground">
-            {searchTerm ? `${filteredAppointments.length} / ${totalAppointments}` : totalAppointments} lịch hẹn
+            {filters.search ? `${filteredAppointments.length} / ${totalAppointments}` : totalAppointments} lịch hẹn
           </div>
         )}
       </div>
@@ -322,7 +342,7 @@ function AppointmentsContent() {
         appointments={paginatedAppointments}
         onEdit={handleEdit}
         onRefresh={() => {
-          if (searchTerm) {
+          if (filters.search) {
             loadAllAppointments()
           } else {
             loadPageAppointments()
@@ -336,7 +356,7 @@ function AppointmentsContent() {
       {totalPagesForFiltered > 1 && (
         <div className="flex justify-between items-center mt-4">
           <div className="text-sm text-muted-foreground">
-            {searchTerm 
+            {filters.search 
               ? `Hiển thị ${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filteredAppointments.length)} trên tổng số ${filteredAppointments.length} lịch hẹn`
               : `Hiển thị ${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, totalAppointments)} trên tổng số ${totalAppointments} lịch hẹn`
             }
@@ -347,7 +367,10 @@ function AppointmentsContent() {
                 variant="outline"
                 size="sm"
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage(1)}
+                onClick={() => {
+                  setCurrentPage(1)
+                  updateFilters({ page: 1 })
+                }}
                 className="h-8 w-8 p-0"
               >
                 «
@@ -358,7 +381,11 @@ function AppointmentsContent() {
                 variant="outline"
                 size="sm"
                 disabled={currentPage === 1}
-                onClick={() => setCurrentPage(currentPage - 1)}
+                onClick={() => {
+                  const newPage = currentPage - 1
+                  setCurrentPage(newPage)
+                  updateFilters({ page: newPage })
+                }}
                 className="h-8 w-8 p-0"
               >
                 ‹
@@ -382,7 +409,10 @@ function AppointmentsContent() {
                       key={i}
                       variant={i === currentPage ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setCurrentPage(i)}
+                      onClick={() => {
+                        setCurrentPage(i)
+                        updateFilters({ page: i })
+                      }}
                       className="h-8 w-8 p-0"
                     >
                       {i}
@@ -407,7 +437,11 @@ function AppointmentsContent() {
                 variant="outline"
                 size="sm"
                 disabled={currentPage === totalPagesForFiltered}
-                onClick={() => setCurrentPage(currentPage + 1)}
+                onClick={() => {
+                  const newPage = currentPage + 1
+                  setCurrentPage(newPage)
+                  updateFilters({ page: newPage })
+                }}
                 className="h-8 w-8 p-0"
               >
                 ›
@@ -418,7 +452,10 @@ function AppointmentsContent() {
                 variant="outline"
                 size="sm"
                 disabled={currentPage === totalPagesForFiltered}
-                onClick={() => setCurrentPage(totalPagesForFiltered)}
+                onClick={() => {
+                  setCurrentPage(totalPagesForFiltered)
+                  updateFilters({ page: totalPagesForFiltered })
+                }}
                 className="h-8 w-8 p-0"
               >
                 »
@@ -432,7 +469,7 @@ function AppointmentsContent() {
         onOpenChange={setDialogOpen}
         appointmentId={selectedAppointmentId}
         onSuccess={() => {
-          if (searchTerm) {
+          if (filters.search) {
             loadAllAppointments()
           } else {
             loadPageAppointments()
