@@ -894,7 +894,7 @@ function TreatmentPageContent() {
           </div>
           {!loadingSessions && (
             <div className="text-sm text-muted-foreground">
-              {filters.search ? `${filteredSessions.length} / ${totalSessions}` : totalSessions} buổi điều trị
+              {filters.search ? `${filteredSessions.length} kết quả tìm kiếm` : `${totalSessions} buổi điều trị`}
             </div>
           )}
         </div>
@@ -1017,7 +1017,7 @@ function TreatmentPageContent() {
           <div className="flex justify-between items-center mt-4">
             <div className="text-sm text-muted-foreground">
               {filters.search 
-                ? `Hiển thị ${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filteredSessions.length)} trên tổng số ${filteredSessions.length} buổi điều trị`
+                ? `Hiển thị ${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, filteredSessions.length)} trên tổng số ${filteredSessions.length} kết quả tìm kiếm`
                 : `Hiển thị ${(currentPage - 1) * PAGE_SIZE + 1} - ${Math.min(currentPage * PAGE_SIZE, totalSessions)} trên tổng số ${totalSessions} buổi điều trị`
               }
             </div>
