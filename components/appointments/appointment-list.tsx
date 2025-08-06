@@ -23,8 +23,9 @@ import { vi } from "date-fns/locale"
 import { updateAppointment } from "@/lib/appointment-api"
 import { useState, useEffect } from "react"
 import { Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, maskPhoneNumber } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 
 interface AppointmentWithCustomer extends Appointment {
   id: string
@@ -131,146 +132,331 @@ export function AppointmentList({
     }
   }
 
-  return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/50">
-            <TableHead className="w-[100px]">{showCreatedAt ? "Ngày tạo" : "Ngày"}</TableHead>
-            <TableHead className="w-[80px]">{showCreatedAt ? "Giờ tạo" : "Giờ"}</TableHead>
-            {showCreatedAt && (
-              <>
-                <TableHead className="w-[100px]">Ngày hẹn</TableHead>
-                <TableHead className="w-[80px]">Giờ hẹn</TableHead>
-              </>
-            )}
-            <TableHead className="w-[180px]">Khách hàng</TableHead>
-            <TableHead className="w-[150px]">Nợ</TableHead>
-            <TableHead className="w-[120px]">Trạng thái</TableHead>
-            <TableHead className="w-[150px]">Nhân viên</TableHead>
-            <TableHead className="min-w-[200px]">Ghi chú</TableHead>
-            <TableHead className="w-[100px] text-right">Thao tác</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading ? (
-            <TableRow>
-              <TableCell colSpan={showCreatedAt ? 9 : 7} className="p-8 text-center text-muted-foreground">
-                <div className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Đang tải...</span>
+    return (
+    <div className="rounded-lg border shadow-sm bg-white">
+      <ResizablePanelGroup direction="horizontal" className="min-h-[400px]">
+        {/* Ngày */}
+        <ResizablePanel defaultSize={12} minSize={8}>
+          <div className="flex h-full flex-col">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 font-semibold border-b border-gray-200 text-gray-700">
+              {showCreatedAt ? "Ngày tạo" : "Ngày"}
+            </div>
+            <div className="flex-1 overflow-auto">
+              {loading ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Đang tải...</span>
+                  </div>
                 </div>
-              </TableCell>
-            </TableRow>
-          ) : appointments.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={showCreatedAt ? 9 : 7} className="p-8 text-center text-muted-foreground">
-                Không có lịch hẹn nào trong khoảng thời gian đã chọn
-              </TableCell>
-            </TableRow>
-          ) : (
-            appointments.map((appointment) => (
-            <TableRow 
-              key={appointment.id}
-              className={cn(
-                "group hover:bg-muted/50 transition-colors",
-                getRowClassName(appointment.appointment_status?.code || "")
-              )}
-            >
-              <TableCell className="font-medium">
-                {showCreatedAt 
-                  ? format(new Date(appointment.created_at), "dd/MM/yyyy", { locale: vi })
-                  : format(new Date(appointment.appointment_date), "dd/MM/yyyy", { locale: vi })
-                }
-              </TableCell>
-              <TableCell>
-                {showCreatedAt 
-                  ? format(new Date(appointment.created_at), "HH:mm", { locale: vi })
-                  : appointment.appointment_time
-                }
-              </TableCell>
-              {showCreatedAt && (
-                <>
-                  <TableCell className="font-medium">
-                    {format(new Date(appointment.appointment_date), "dd/MM/yyyy", { locale: vi })}
-                  </TableCell>
-                  <TableCell>
-                    {appointment.appointment_time}
-                  </TableCell>
-                </>
-              )}
-              <TableCell className="font-medium truncate">
-                <div 
-                  className="cursor-pointer hover:text-blue-600 hover:underline flex items-center gap-1"
-                  onClick={() => router.push(`/customer-care?customerId=${appointment.customers?.id}`)}
-                >
-                  {appointment.customers?.name}
-                  <span className="text-xs text-muted-foreground">(Xem CSKH)</span>
+              ) : appointments.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  Không có lịch hẹn nào trong khoảng thời gian đã chọn
                 </div>
-              </TableCell>
-              <TableCell>
-                <div className={cn(
-                  appointment.customers?.debt && appointment.customers.debt > 0 ? "text-destructive" : "text-muted-foreground"
-                )}>
-                  {formatDebt(appointment.customers?.debt || null)}
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2 min-w-[110px]">
-                  <Select
-                    value={appointment.status_id}
-                    onValueChange={(value) => handleStatusChange(appointment.id, value)}
-                    disabled={loadingStates[appointment.id]}
+              ) : (
+                appointments.map((appointment) => (
+                  <div 
+                    key={appointment.id}
+                    className={cn(
+                      "px-4 py-3 border-b border-gray-100 group hover:bg-blue-50/50 transition-all duration-200 h-[72px] flex items-center",
+                      getRowClassName(appointment.appointment_status?.code || "")
+                    )}
                   >
-                    <SelectTrigger 
+                    <div className="font-medium text-gray-900">
+                      {showCreatedAt 
+                        ? format(new Date(appointment.created_at), "dd/MM/yyyy", { locale: vi })
+                        : format(new Date(appointment.appointment_date), "dd/MM/yyyy", { locale: vi })
+                      }
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </ResizablePanel>
+        
+        <ResizableHandle withHandle />
+
+        {/* Giờ */}
+        <ResizablePanel defaultSize={8} minSize={6}>
+          <div className="flex h-full flex-col">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 font-semibold border-b border-gray-200 text-gray-700">
+              {showCreatedAt ? "Giờ tạo" : "Giờ"}
+            </div>
+            <div className="flex-1 overflow-auto">
+              {!loading && appointments.length > 0 && appointments.map((appointment) => (
+                <div 
+                  key={appointment.id}
+                  className={cn(
+                    "px-4 py-3 border-b border-gray-100 group hover:bg-blue-50/50 transition-all duration-200 h-[72px] flex items-center",
+                    getRowClassName(appointment.appointment_status?.code || "")
+                  )}
+                >
+                  <div className="text-gray-700 font-medium">
+                    {showCreatedAt 
+                      ? format(new Date(appointment.created_at), "HH:mm", { locale: vi })
+                      : appointment.appointment_time
+                    }
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ResizablePanel>
+
+        {showCreatedAt && (
+          <>
+            <ResizableHandle withHandle />
+            
+            {/* Ngày hẹn */}
+            <ResizablePanel defaultSize={12} minSize={8}>
+              <div className="flex h-full flex-col">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 font-semibold border-b border-gray-200 text-gray-700">
+                  Ngày hẹn
+                </div>
+                <div className="flex-1 overflow-auto">
+                  {!loading && appointments.length > 0 && appointments.map((appointment) => (
+                    <div 
+                      key={appointment.id}
                       className={cn(
-                        "border-0 p-0 h-auto bg-transparent hover:bg-transparent focus:ring-0 font-medium",
-                        getStatusColor(appointment.appointment_status?.code || ""),
-                        loadingStates[appointment.id] && "opacity-50"
+                        "px-4 py-3 border-b border-gray-100 group hover:bg-blue-50/50 transition-all duration-200 h-[72px] flex items-center",
+                        getRowClassName(appointment.appointment_status?.code || "")
                       )}
                     >
-                      <SelectValue>{getStatusText(appointment)}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent align="start">
-                      {appointmentStatuses.map((status) => (
-                        <SelectItem 
-                          key={status.id} 
-                          value={status.id} 
-                          className={`text-${status.color}-600 font-medium`}
-                        >
-                          {status.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {loadingStates[appointment.id] && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                      <div className="font-medium text-gray-900">
+                        {format(new Date(appointment.appointment_date), "dd/MM/yyyy", { locale: vi })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </ResizablePanel>
+
+            <ResizableHandle withHandle />
+
+            {/* Giờ hẹn */}
+            <ResizablePanel defaultSize={8} minSize={6}>
+              <div className="flex h-full flex-col">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 font-semibold border-b border-gray-200 text-gray-700">
+                  Giờ hẹn
+                </div>
+                <div className="flex-1 overflow-auto">
+                  {!loading && appointments.length > 0 && appointments.map((appointment) => (
+                    <div 
+                      key={appointment.id}
+                      className={cn(
+                        "px-4 py-3 border-b border-gray-100 group hover:bg-blue-50/50 transition-all duration-200 h-[72px] flex items-center",
+                        getRowClassName(appointment.appointment_status?.code || "")
+                      )}
+                    >
+                      <div className="text-gray-700 font-medium">
+                        {appointment.appointment_time}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </ResizablePanel>
+          </>
+        )}
+
+        <ResizableHandle withHandle />
+
+        {/* Khách hàng */}
+        <ResizablePanel defaultSize={10} minSize={10}>
+          <div className="flex h-full flex-col">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 font-semibold border-b border-gray-200 text-gray-700">
+              Khách hàng
+            </div>
+            <div className="flex-1 overflow-auto">
+              {!loading && appointments.length > 0 && appointments.map((appointment) => (
+                <div 
+                  key={appointment.id}
+                  className={cn(
+                    "px-4 py-3 border-b border-gray-100 group hover:bg-blue-50/50 transition-all duration-200 h-[72px] flex items-center",
+                    getRowClassName(appointment.appointment_status?.code || "")
                   )}
-                </div>
-              </TableCell>
-              <TableCell className="truncate">
-                {appointment.created_by_user?.full_name || "N/A"}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                <div className="line-clamp-1">
-                  {appointment.notes}
-                </div>
-              </TableCell>
-              <TableCell className="text-right">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onEdit(appointment.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                  Sửa
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))
-          )}
-        </TableBody>
-      </Table>
+                  <div 
+                    className="cursor-pointer hover:text-blue-600 hover:underline transition-colors duration-200"
+                    onClick={() => router.push(`/customer-care?customerId=${appointment.customers?.id}`)}
+                  >
+                    <div className="font-medium text-gray-900">{appointment.customers?.name}</div>
+                    <div className="text-sm text-gray-600">{maskPhoneNumber(appointment.customers?.phone || null)}</div>
+                    <div className="text-xs text-blue-600 font-medium">(Xem CSKH)</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        {/* Nợ */}
+        <ResizablePanel defaultSize={12} minSize={8}>
+          <div className="flex h-full flex-col">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 font-semibold border-b border-gray-200 text-gray-700">
+              Nợ
+            </div>
+            <div className="flex-1 overflow-auto">
+              {!loading && appointments.length > 0 && appointments.map((appointment) => (
+                <div 
+                  key={appointment.id}
+                  className={cn(
+                    "px-4 py-3 border-b border-gray-100 group hover:bg-blue-50/50 transition-all duration-200 h-[72px] flex items-center",
+                    getRowClassName(appointment.appointment_status?.code || "")
+                  )}
+                >
+                  <div className={cn(
+                    "font-medium",
+                    appointment.customers?.debt && appointment.customers.debt > 0 ? "text-red-600" : "text-gray-600"
+                  )}>
+                    {formatDebt(appointment.customers?.debt || null)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        {/* Trạng thái */}
+        <ResizablePanel defaultSize={15} minSize={10}>
+          <div className="flex h-full flex-col">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 font-semibold border-b border-gray-200 text-gray-700">
+              Trạng thái
+            </div>
+            <div className="flex-1 overflow-auto">
+              {!loading && appointments.length > 0 && appointments.map((appointment) => (
+                <div 
+                  key={appointment.id}
+                  className={cn(
+                    "px-4 py-3 border-b border-gray-100 group hover:bg-blue-50/50 transition-all duration-200 h-[72px] flex items-center",
+                    getRowClassName(appointment.appointment_status?.code || "")
+                  )}
+                >
+                  <div className="flex items-center gap-2 min-w-[110px]">
+                    <Select
+                      value={appointment.status_id}
+                      onValueChange={(value) => handleStatusChange(appointment.id, value)}
+                      disabled={loadingStates[appointment.id]}
+                    >
+                      <SelectTrigger 
+                        className={cn(
+                          "border-0 p-0 h-auto bg-transparent hover:bg-transparent focus:ring-0 font-medium transition-colors duration-200",
+                          getStatusColor(appointment.appointment_status?.code || ""),
+                          loadingStates[appointment.id] && "opacity-50"
+                        )}
+                      >
+                        <SelectValue>{getStatusText(appointment)}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent align="start">
+                        {appointmentStatuses.map((status) => (
+                          <SelectItem 
+                            key={status.id} 
+                            value={status.id} 
+                            className={`text-${status.color}-600 font-medium`}
+                          >
+                            {status.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {loadingStates[appointment.id] && (
+                      <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        {/* Nhân viên */}
+        <ResizablePanel defaultSize={12} minSize={8}>
+          <div className="flex h-full flex-col">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 font-semibold border-b border-gray-200 text-gray-700">
+              Nhân viên
+            </div>
+            <div className="flex-1 overflow-auto">
+              {!loading && appointments.length > 0 && appointments.map((appointment) => (
+                <div 
+                  key={appointment.id}
+                  className={cn(
+                    "px-4 py-3 border-b border-gray-100 group hover:bg-blue-50/50 transition-all duration-200 h-[72px] flex items-center",
+                    getRowClassName(appointment.appointment_status?.code || "")
+                  )}
+                >
+                  <div className="truncate text-gray-700 font-medium">
+                    {appointment.created_by_user?.full_name || "N/A"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        {/* Ghi chú */}
+        <ResizablePanel defaultSize={25} minSize={15}>
+          <div className="flex h-full flex-col">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 font-semibold border-b border-gray-200 text-gray-700">
+              Ghi chú
+            </div>
+            <div className="flex-1 overflow-auto">
+              {!loading && appointments.length > 0 && appointments.map((appointment) => (
+                <div 
+                  key={appointment.id}
+                  className={cn(
+                    "px-4 py-3 border-b border-gray-100 group hover:bg-blue-50/50 transition-all duration-200 h-[72px] flex items-center",
+                    getRowClassName(appointment.appointment_status?.code || "")
+                  )}
+                >
+                                     <div className="text-gray-600 line-clamp-1">
+                     {appointment.notes || "Không có ghi chú"}
+                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        {/* Thao tác */}
+        <ResizablePanel defaultSize={10} minSize={8}>
+          <div className="flex h-full flex-col">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 font-semibold border-b border-gray-200 text-gray-700 text-right">
+              Thao tác
+            </div>
+            <div className="flex-1 overflow-auto">
+              {!loading && appointments.length > 0 && appointments.map((appointment) => (
+                <div 
+                  key={appointment.id}
+                  className={cn(
+                    "px-4 py-3 border-b border-gray-100 group hover:bg-blue-50/50 transition-all duration-200 h-[72px] flex items-center justify-end",
+                    getRowClassName(appointment.appointment_status?.code || "")
+                  )}
+                >
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEdit(appointment.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-blue-100 hover:text-blue-700"
+                  >
+                    Sửa
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   )
 } 
