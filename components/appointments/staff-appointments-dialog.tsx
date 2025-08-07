@@ -16,8 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { format } from "date-fns"
-import { vi } from "date-fns/locale"
+import { formatDate } from "@/lib/utils"
 
 interface StaffAppointment extends Appointment {
   customers?: {
@@ -91,7 +90,7 @@ export function StaffAppointmentsDialog({
                   {appointments.map((appointment) => (
                     <TableRow key={appointment.id}>
                       <TableCell>
-                        {format(new Date(appointment.appointment_date), "dd/MM/yyyy", { locale: vi })}
+                        {formatDate(appointment.appointment_date)}
                       </TableCell>
                       <TableCell>{appointment.appointment_time}</TableCell>
                       <TableCell>{appointment.customers?.name}</TableCell>

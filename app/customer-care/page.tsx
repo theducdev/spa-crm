@@ -40,7 +40,7 @@ import { Customer, getCustomer } from "@/lib/customer-api"
 import { CustomerMessage } from "@/types/customer-care"
 import { format } from "date-fns"
 import { vi } from "date-fns/locale"
-import { formatCurrency, maskPhoneNumber } from "@/lib/utils"
+import { formatCurrency, maskPhoneNumber, formatDate, formatDateTime } from "@/lib/utils"
 import { getTreatmentsByCustomer, getTreatmentSessions, upsertTreatmentSession } from "@/lib/treatment-api"
 import { createAppointment } from "@/lib/appointment-api"
 import type { Treatment, TreatmentSession } from "@/lib/supabase"
@@ -359,7 +359,7 @@ function CustomerCareContent() {
         setAppointmentCreated({
           success: true,
           date: editingNextAppointment,
-          message: `Đã tạo lịch hẹn thành công cho ${selectedCustomer.name} vào ngày ${format(new Date(editingNextAppointment), "dd/MM/yyyy", { locale: vi })} lúc 09:00`
+          message: `Đã tạo lịch hẹn thành công cho ${selectedCustomer.name} vào ngày ${formatDate(editingNextAppointment)} lúc 09:00`
         })
       } catch (error) {
         console.error("Lỗi tạo lịch hẹn:", error)
@@ -577,7 +577,7 @@ function CustomerCareContent() {
                                   </Badge>
                                   {session.session_date && (
                                     <span className="text-xs text-muted-foreground">
-                                      {format(new Date(session.session_date), "dd/MM/yyyy", { locale: vi })}
+                                      {formatDate(session.session_date)}
                                     </span>
                                   )}
                                 </div>
@@ -649,7 +649,7 @@ function CustomerCareContent() {
                                   </div>
                                   {session.next_appointment ? (
                                     <p className="mt-1">
-                                      {format(new Date(session.next_appointment), "dd/MM/yyyy", { locale: vi })}
+                                      {formatDate(session.next_appointment)}
                                     </p>
                                   ) : (
                                     <p className="text-muted-foreground italic mt-1">Chưa có lịch hẹn</p>
@@ -680,7 +680,7 @@ function CustomerCareContent() {
                               : "Tin nhắn"}
                           </Badge>
                           <span className="text-xs text-muted-foreground">
-                            {format(new Date(message.sent_at), "dd/MM/yyyy HH:mm", { locale: vi })}
+                            {formatDateTime(message.sent_at)}
                           </span>
                         </div>
                         <p className="text-sm">{message.message_content}</p>
@@ -762,7 +762,7 @@ function CustomerCareContent() {
           <DialogHeader>
             <DialogTitle>Chỉnh sửa thông tin buổi điều trị</DialogTitle>
             <DialogDescription>
-              Buổi {editingSession?.session_number} - {editingSession?.session_date && format(new Date(editingSession.session_date), "dd/MM/yyyy", { locale: vi })}
+                                Buổi {editingSession?.session_number} - {editingSession?.session_date && formatDate(editingSession.session_date)}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">

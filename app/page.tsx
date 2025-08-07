@@ -11,6 +11,7 @@ import { getStaffStats, getTodayAppointments } from "@/lib/appointment-api"
 import { getTodaySessionsStats, getCompletionRate, getUpcomingEndTreatments, getTotalRevenue } from "@/lib/treatment-api"
 import { StaffAppointmentsDialog } from "@/components/appointments/staff-appointments-dialog"
 import { useRouter } from "next/navigation"
+import { formatDate } from "@/lib/utils"
 
 export default function Dashboard() {
   const router = useRouter()
@@ -70,7 +71,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between sm:hidden">
         <div>
           <h1 className="text-xl font-bold">Chào buổi sáng!</h1>
-          <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString("vi-VN")}</p>
+          <p className="text-sm text-muted-foreground">{formatDate(new Date())}</p>
         </div>
       </div>
 
@@ -78,7 +79,7 @@ export default function Dashboard() {
       <div className="hidden sm:flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Chào buổi sáng, Quản lý!</h1>
-          <p className="text-muted-foreground">Hôm nay là {new Date().toLocaleDateString("vi-VN")}</p>
+          <p className="text-muted-foreground">Hôm nay là {formatDate(new Date())}</p>
         </div>
       </div>
 
@@ -255,7 +256,7 @@ export default function Dashboard() {
                       <div className="text-right shrink-0">
                         {treatment.nextDate ? (
                           <div className="text-xs text-muted-foreground">
-                            {new Date(treatment.nextDate).toLocaleDateString("vi-VN")}
+                            {formatDate(treatment.nextDate)}
                           </div>
                         ) : (
                           <div className="text-xs text-yellow-600">Chưa có lịch hẹn</div>

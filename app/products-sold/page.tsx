@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { useFilterParams } from '@/hooks/use-filter-params'
 import { Skeleton } from '@/components/ui/skeleton'
+import { formatDate } from '@/lib/utils'
 
 interface ProductUsage {
   product: string
@@ -219,7 +220,7 @@ function ProductsSoldContent() {
                 return session.products_sold.map((product: ProductUsage, index: number) => (
                   <TableRow key={`${session.id}-${index}`}>
                     <TableCell>
-                      {new Date(session.created_at).toLocaleDateString('vi-VN')}
+                      {formatDate(session.created_at)}
                     </TableCell>
                     <TableCell>
                       {session.customer_name}

@@ -18,9 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { format } from "date-fns"
-import { vi } from "date-fns/locale"
 import { updateAppointment } from "@/lib/appointment-api"
+import { formatDate } from "@/lib/utils"
 import { useState, useEffect } from "react"
 import { Loader2 } from "lucide-react"
 import { cn, maskPhoneNumber } from "@/lib/utils"
@@ -164,8 +163,8 @@ export function AppointmentList({
                   >
                     <div className="font-medium text-gray-900">
                       {showCreatedAt 
-                        ? format(new Date(appointment.created_at), "dd/MM/yyyy", { locale: vi })
-                        : format(new Date(appointment.appointment_date), "dd/MM/yyyy", { locale: vi })
+                        ? formatDate(appointment.created_at)
+                        : formatDate(appointment.appointment_date)
                       }
                     </div>
                   </div>
@@ -194,7 +193,7 @@ export function AppointmentList({
                 >
                   <div className="text-gray-700 font-medium">
                     {showCreatedAt 
-                      ? format(new Date(appointment.created_at), "HH:mm", { locale: vi })
+                      ? new Date(appointment.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
                       : appointment.appointment_time
                     }
                   </div>
@@ -224,7 +223,7 @@ export function AppointmentList({
                       )}
                     >
                       <div className="font-medium text-gray-900">
-                        {format(new Date(appointment.appointment_date), "dd/MM/yyyy", { locale: vi })}
+                        {formatDate(appointment.appointment_date)}
                       </div>
                     </div>
                   ))}

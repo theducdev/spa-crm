@@ -17,7 +17,7 @@ import { getTreatmentsByCustomer } from "@/lib/treatment-api"
 import type { Treatment } from "@/lib/supabase"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
+import { cn, formatDate } from "@/lib/utils"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { useFilterParams } from "../../hooks/use-filter-params"
 
@@ -217,9 +217,7 @@ export default function GalleryPage() {
     resetFilters()
   }
 
-  const formatDate = (date: string) => {
-    return format(new Date(date), "dd/MM/yyyy", { locale: vi })
-  }
+
 
   if (error) {
     return (

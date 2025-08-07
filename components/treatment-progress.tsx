@@ -6,6 +6,7 @@ import { Calendar, CheckCircle, Clock } from "lucide-react"
 import type { Treatment, TreatmentSession } from "@/lib/supabase"
 import { getTreatmentSessions } from "@/lib/treatment-api"
 import { useEffect, useState } from "react"
+import { formatDate } from "@/lib/utils"
 
 interface TreatmentProgressProps {
   treatment: Treatment
@@ -63,16 +64,16 @@ export function TreatmentProgress({ treatment, selectedSession }: TreatmentProgr
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <div>
             <p className="text-muted-foreground">Ngày bắt đầu</p>
-            <p className="font-medium">{treatment.start_date}</p>
+            <p className="font-medium">{formatDate(treatment.start_date)}</p>
           </div>
         </div>
         {treatment.end_date && (
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
-            <div>
-              <p className="text-muted-foreground">Ngày kết thúc</p>
-              <p className="font-medium">{treatment.end_date}</p>
-            </div>
+                      <div>
+            <p className="text-muted-foreground">Ngày kết thúc</p>
+            <p className="font-medium">{formatDate(treatment.end_date)}</p>
+          </div>
           </div>
         )}
       </div>

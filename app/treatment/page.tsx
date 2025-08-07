@@ -30,7 +30,7 @@ import { createAppointment } from "@/lib/appointment-api"
 import type { Treatment, TreatmentSession } from "@/lib/supabase"
 import { TreatmentProgress } from "@/components/treatment-progress"
 import { getProducts, type Product } from "@/lib/product-api"
-import { maskPhoneNumber } from "@/lib/utils"
+import { maskPhoneNumber, formatDate, formatDateForInput } from "@/lib/utils"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Suspense } from "react"
 import { supabase } from "@/lib/supabase"
@@ -133,8 +133,8 @@ function TreatmentPageContent() {
 
   // Bộ lọc
   const { filters, updateFilters: _updateFilters } = useFilterParams({
-    fromDate: format(startOfMonth(new Date()), "yyyy-MM-dd"),
-    toDate: format(endOfMonth(new Date()), "yyyy-MM-dd"),
+    fromDate: formatDateForInput(startOfMonth(new Date())),
+    toDate: formatDateForInput(endOfMonth(new Date())),
     showCreatedAt: false as boolean | undefined,
     search: "",
     page: 1
@@ -763,14 +763,14 @@ function TreatmentPageContent() {
   const setDateRange = (days: number) => {
     const today = new Date()
     updateFilters({
-      fromDate: format(today, "yyyy-MM-dd"),
-      toDate: format(addDays(today, days), "yyyy-MM-dd")
+      fromDate: formatDateForInput(today),
+      toDate: formatDateForInput(addDays(today, days))
     })
   }
 
   // Thêm hàm xem buổi điều trị hôm nay
   const setToday = () => {
-    const today = format(new Date(), "yyyy-MM-dd")
+    const today = formatDateForInput(new Date())
     updateFilters({
       fromDate: today,
       toDate: today
@@ -939,16 +939,8 @@ function TreatmentPageContent() {
                     <td className="p-4 align-top">
                       <div className="text-sm">
                         {filters.showCreatedAt 
-                          ? new Date(session.created_at || '').toLocaleDateString('vi-VN', {
-                              year: 'numeric',
-                              month: '2-digit',
-                              day: '2-digit',
-                            })
-                          : new Date(session.session_date || '').toLocaleDateString('vi-VN', {
-                              year: 'numeric',
-                              month: '2-digit',
-                              day: '2-digit',
-                            })
+                          ? formatDate(session.created_at || '')
+                          : formatDate(session.session_date || '')
                         }
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -981,7 +973,7 @@ function TreatmentPageContent() {
                       </div>
                     </td>
                     <td className="p-4 align-top whitespace-nowrap">
-                      {session.session_date ? new Date(session.session_date).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                      {session.session_date ? formatDate(session.session_date) : 'Chưa xác định'}
                     </td>
                     <td className="p-4 align-top">
                       <div className="text-sm">
@@ -1282,7 +1274,7 @@ function TreatmentPageContent() {
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground">Ngày điều trị</Label>
-                      <p className="text-base">{currentSession.session_date || "Chưa xác định"}</p>
+                      <p className="text-base">{currentSession.session_date ? formatDate(currentSession.session_date) : "Chưa xác định"}</p>
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-muted-foreground">Người tạo</Label>
@@ -1291,7 +1283,7 @@ function TreatmentPageContent() {
                     {currentSession.next_appointment && (
                       <div>
                         <Label className="text-sm font-medium text-muted-foreground">Lịch hẹn tiếp theo</Label>
-                        <p className="text-base">{currentSession.next_appointment}</p>
+                        <p className="text-base">{formatDate(currentSession.next_appointment)}</p>
                       </div>
                     )}
                     <div className="pt-2">

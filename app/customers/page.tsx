@@ -45,7 +45,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
+import { cn, formatDate } from "@/lib/utils"
 import { getCustomerTags, type CustomerTag } from "@/lib/customer-tag-api"
 import { SearchableCombobox } from "@/components/ui/searchable-combobox"
 import { useFilterParams } from "@/hooks/use-filter-params"
@@ -561,10 +561,7 @@ function CustomersContent() {
     }
   }
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return "Chưa có"
-    return new Date(dateString).toLocaleDateString("vi-VN")
-  }
+
 
   const maskPhoneNumber = (phone: string | null) => {
     if (!phone) return "Chưa có"

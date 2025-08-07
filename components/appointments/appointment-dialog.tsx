@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/dialog"
 import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { format } from "date-fns"
 import { supabase } from "@/lib/supabase"
 
 type FormData = {
@@ -55,7 +54,7 @@ export function AppointmentDialog({
   const isEdit = !!appointmentId
   const [formData, setFormData] = useState<FormData>({
     customer_id: "",
-    appointment_date: format(new Date(), "yyyy-MM-dd"),
+    appointment_date: new Date().toISOString().split('T')[0],
     appointment_time: "",
     status_id: "",
     notes: "",
@@ -120,7 +119,7 @@ export function AppointmentDialog({
       const data = await getAppointment(appointmentId!)
       setFormData({
         customer_id: data.customer_id,
-        appointment_date: format(new Date(data.appointment_date), "yyyy-MM-dd"),
+        appointment_date: new Date(data.appointment_date).toISOString().split('T')[0],
         appointment_time: data.appointment_time,
         status_id: data.status_id,
         notes: data.notes || "",

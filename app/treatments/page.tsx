@@ -15,7 +15,7 @@ import { getCustomers, type Customer, type CustomerFilters, getCustomer } from "
 import { getTreatmentsByCustomer, createTreatment, updateTreatment, deleteTreatment, updateTreatmentCurrentSession } from "@/lib/treatment-api"
 import type { Treatment } from "@/lib/supabase"
 import { getTreatmentPackages, type TreatmentPackage } from "@/lib/treatment-package-api"
-import { maskPhoneNumber } from "@/lib/utils"
+import { maskPhoneNumber, formatDate } from "@/lib/utils"
 import { useFilterParams } from "@/hooks/use-filter-params"
 import {
   Command,
@@ -482,7 +482,7 @@ function TreatmentsContent() {
                           </Button>
                         </div>
                       </TableCell>
-                      <TableCell>{treatment.start_date}</TableCell>
+                      <TableCell>{formatDate(treatment.start_date)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Badge variant={treatment.status === "active" ? "default" : "secondary"}>
@@ -843,7 +843,7 @@ function TreatmentsContent() {
                                     </Button>
                                   </div>
                                 </TableCell>
-                                <TableCell>{treatment.start_date}</TableCell>
+                                <TableCell>{formatDate(treatment.start_date)}</TableCell>
                                 <TableCell>
                                   <div className="flex flex-wrap items-center gap-2">
                                     <Badge variant={treatment.status === "active" ? "default" : "secondary"}>
