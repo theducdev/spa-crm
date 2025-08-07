@@ -262,7 +262,7 @@ export function AppointmentList({
         <ResizableHandle withHandle />
 
         {/* Khách hàng */}
-        <ResizablePanel defaultSize={10} minSize={10}>
+        <ResizablePanel defaultSize={13} minSize={10}>
           <div className="flex h-full flex-col">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 font-semibold border-b border-gray-200 text-gray-700">
               Khách hàng
