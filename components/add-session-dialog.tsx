@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createNewTreatmentSession, upsertTreatmentSession } from "@/lib/treatment-api"
+import { supabase } from "@/lib/supabase"
 import { getProducts, type Product } from "@/lib/product-api"
 import type { Treatment } from "@/lib/supabase"
 import { SearchableCombobox } from "@/components/ui/searchable-combobox"
@@ -86,6 +87,37 @@ export function AddSessionDialog({ treatment, onSessionAdded, canAddSession }: A
         products_used: sessionData.products_used,
         notes: sessionData.notes
       }, currentUser.id)
+
+      // Tìm và cập nhật lịch hẹn tương ứng (nếu có)
+      const { data: appointments } = await supabase
+        .from("appointments")
+        .select("id, status_id")
+        .eq("customer_id", treatment.customer_id)
+        .eq("appointment_date", sessionData.session_date)
+        .eq("treatment_id", treatment.id)
+        .eq("status", "pending")
+        .order("created_at", { ascending: true })
+        .limit(1)
+
+      if (appointments && appointments.length > 0) {
+        // Lấy status_id của trạng thái "confirmed"
+        const { data: confirmedStatus } = await supabase
+          .from("appointment_statuses")
+          .select("id")
+          .eq("code", "confirmed")
+          .single()
+
+        if (confirmedStatus) {
+          // Cập nhật trạng thái của lịch hẹn thành đã xác nhận
+          await supabase
+            .from("appointments")
+            .update({ 
+              status: "confirmed",
+              status_id: confirmedStatus.id 
+            })
+            .eq("id", appointments[0].id)
+        }
+      }
 
       toast({
         title: "Thành công",

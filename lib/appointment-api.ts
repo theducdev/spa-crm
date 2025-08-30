@@ -11,6 +11,7 @@ export interface Appointment {
   created_by: number
   created_at: string
   updated_at: string
+  treatment_id?: string
   appointment_status?: {
     id: string
     code: string
@@ -125,7 +126,8 @@ export async function createAppointment(appointmentData: Partial<Appointment>) {
       appointment_time: appointmentData.appointment_time,
       status_id: appointmentData.status_id || await getDefaultStatusId(),
       notes: appointmentData.notes,
-      created_by: appointmentData.created_by
+      created_by: appointmentData.created_by,
+      treatment_id: appointmentData.treatment_id
     }])
     .select()
     .single()
@@ -146,7 +148,8 @@ export async function updateAppointment(id: string, appointmentData: Partial<App
       appointment_date: appointmentData.appointment_date,
       appointment_time: appointmentData.appointment_time,
       status_id: appointmentData.status_id,
-      notes: appointmentData.notes
+      notes: appointmentData.notes,
+      treatment_id: appointmentData.treatment_id
     })
     .eq("id", id)
     .select()
