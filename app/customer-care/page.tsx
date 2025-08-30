@@ -36,6 +36,7 @@ import {
   fetchCustomerMessages,
   updateCustomerPriority
 } from "@/lib/customer-care-api"
+import { getAppointmentStatusByCode } from "@/lib/appointment-status-api"
 import { Customer, getCustomer } from "@/lib/customer-api"
 import { CustomerMessage } from "@/types/customer-care"
 import { format } from "date-fns"
@@ -115,6 +116,7 @@ function CustomerCareContent() {
     date: string
     message: string
   } | null>(null)
+  const [currentUser, setCurrentUser] = useState<{ id: number } | null>(null)
 
   const { filters, updateFilters } = useFilterParams<CustomerCareFilters>({
     search: "",
@@ -122,6 +124,23 @@ function CustomerCareContent() {
     selectedCustomerId: "",
     selectedTreatmentId: "",
   })
+
+  // Load thông tin current user
+  const loadCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/auth/current-user')
+      const data = await response.json()
+      if (data.user) {
+        setCurrentUser({ id: data.user.id })
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error)
+    }
+  }
+
+  useEffect(() => {
+    loadCurrentUser()
+  }, [])
 
   // Cập nhật state từ filters
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -334,6 +353,14 @@ function CustomerCareContent() {
 
   const handleUpdateSessionInfo = async () => {
     if (!editingSession || !currentEditingSession) return
+    if (!currentUser) {
+      toast({
+        title: "Lỗi",
+        description: "Không thể tạo lịch hẹn: Chưa đăng nhập",
+        variant: "destructive",
+      })
+      return
+    }
 
     await updateSessionMutation.mutateAsync({
       id: editingSession.id,
@@ -342,17 +369,19 @@ function CustomerCareContent() {
     })
 
     // Tự động tạo lịch hẹn nếu có next_appointment và next_appointment đã thay đổi
-    if (editingNextAppointment && 
-        selectedCustomer?.id && 
-        editingNextAppointment !== currentEditingSession.next_appointment) {
+    if (editingNextAppointment && selectedCustomer?.id) {
       try {
+        // Xác định trạng thái dựa vào việc đã có lịch hẹn trước đó hay chưa
+        const statusCode = currentEditingSession.next_appointment ? "cancelled" : "service"
+        const appointmentStatus = await getAppointmentStatusByCode(statusCode)
+        
         await createAppointment({
           customer_id: selectedCustomer.id,
           appointment_date: editingNextAppointment,
           appointment_time: "09:00", // Mặc định 9:00 sáng
-          status: "pending",
+          status_id: appointmentStatus.id,
           notes: `Buổi điều trị ${editingSession.session_number} - ${selectedTreatment?.treatment_name}`,
-          created_by: 1 // Tạm thời hardcode, có thể cần lấy từ context user
+          created_by: currentUser.id
         })
         
         // Hiển thị thông báo tạo lịch hẹn thành công
