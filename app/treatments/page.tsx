@@ -62,6 +62,7 @@ function TreatmentsContent() {
   const [formData, setFormData] = useState({
     treatment_package_id: "",
     start_date: new Date().toISOString().split("T")[0],
+    end_date: "",
     status: "active" as "active" | "completed",
     notes: ""
   })
@@ -195,6 +196,7 @@ function TreatmentsContent() {
         total_sessions: selectedPackage.total_sessions,
         price: selectedPackage.price,
         start_date: formData.start_date,
+        end_date: formData.end_date || null,
         notes: formData.notes
       })
 
@@ -220,6 +222,7 @@ function TreatmentsContent() {
     setFormData({
       treatment_package_id: treatmentPackages.find(p => p.name === treatment.treatment_name)?.id || "",
       start_date: treatment.start_date,
+      end_date: treatment.end_date || "",
       status: treatment.status as "active" | "completed",
       notes: treatment.notes || ""
     })
@@ -250,6 +253,7 @@ function TreatmentsContent() {
         total_sessions: selectedPackage.total_sessions,
         price: selectedPackage.price,
         start_date: formData.start_date,
+        end_date: formData.end_date || undefined,
         status: formData.status,
         notes: formData.notes
       })
@@ -448,10 +452,11 @@ function TreatmentsContent() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tên liệu trình</TableHead>
-                    <TableHead>Tiến độ</TableHead>
-                    <TableHead>Ngày bắt đầu</TableHead>
-                    <TableHead>Trạng thái</TableHead>
+                    <TableHead className="w-[30%]">Tên liệu trình</TableHead>
+                    <TableHead className="w-[15%]">Tiến độ</TableHead>
+                    <TableHead className="w-[15%]">Ngày bắt đầu</TableHead>
+                    <TableHead className="w-[15%]">Điều trị gần nhất</TableHead>
+                    <TableHead className="w-[25%]">Trạng thái</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -484,15 +489,25 @@ function TreatmentsContent() {
                       </TableCell>
                       <TableCell>{formatDate(treatment.start_date)}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={treatment.status === "active" ? "default" : "secondary"}>
-                            {treatment.status === "active" ? "Đang điều trị" : "Hoàn thành"}
-                          </Badge>
+                        {treatment.latest_session_date ? (
+                          formatDate(treatment.latest_session_date)
+                        ) : (
+                          <span className="text-muted-foreground">Chưa có buổi điều trị nào</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-[100px]">
+                            <Badge variant={treatment.status === "active" ? "default" : "secondary"} className="whitespace-nowrap">
+                              {treatment.status === "active" ? "Đang điều trị" : "Hoàn thành"}
+                            </Badge>
+                          </div>
                           <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => handleEditTreatment(treatment)}
+                              className="h-8 w-8"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -500,6 +515,7 @@ function TreatmentsContent() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDeleteTreatment(treatment)}
+                              className="h-8 w-8"
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
@@ -581,6 +597,17 @@ function TreatmentsContent() {
                 value={formData.start_date}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, start_date: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end_date">Ngày kết thúc</Label>
+              <Input
+                id="end_date"
+                type="date"
+                value={formData.end_date}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, end_date: e.target.value }))
                 }
               />
             </div>
@@ -669,6 +696,17 @@ function TreatmentsContent() {
                 value={formData.start_date}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, start_date: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="end_date">Ngày kết thúc</Label>
+              <Input
+                id="end_date"
+                type="date"
+                value={formData.end_date}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, end_date: e.target.value }))
                 }
               />
             </div>
@@ -804,9 +842,10 @@ function TreatmentsContent() {
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead className="w-[35%]">Tên liệu trình</TableHead>
-                              <TableHead className="w-[20%]">Tiến độ</TableHead>
-                              <TableHead className="w-[20%]">Ngày bắt đầu</TableHead>
+                              <TableHead className="w-[30%]">Tên liệu trình</TableHead>
+                              <TableHead className="w-[15%]">Tiến độ</TableHead>
+                              <TableHead className="w-[15%]">Ngày bắt đầu</TableHead>
+                              <TableHead className="w-[15%]">Điều trị gần nhất</TableHead>
                               <TableHead className="w-[25%]">Trạng thái</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -845,11 +884,20 @@ function TreatmentsContent() {
                                 </TableCell>
                                 <TableCell>{formatDate(treatment.start_date)}</TableCell>
                                 <TableCell>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <Badge variant={treatment.status === "active" ? "default" : "secondary"}>
-                                      {treatment.status === "active" ? "Đang điều trị" : "Hoàn thành"}
-                                    </Badge>
-                                    <div className="flex items-center gap-1 ml-auto">
+                                  {treatment.latest_session_date ? (
+                                    formatDate(treatment.latest_session_date)
+                                  ) : (
+                                    <span className="text-muted-foreground">Chưa có buổi điều trị nào</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center justify-between">
+                                    <div className="min-w-[100px]">
+                                      <Badge variant={treatment.status === "active" ? "default" : "secondary"} className="whitespace-nowrap">
+                                        {treatment.status === "active" ? "Đang điều trị" : "Hoàn thành"}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-1">
                                       <Button
                                         variant="ghost"
                                         size="icon"
@@ -857,6 +905,7 @@ function TreatmentsContent() {
                                           e.stopPropagation()
                                           handleEditTreatment(treatment)
                                         }}
+                                        className="h-8 w-8"
                                         aria-label={`Chỉnh sửa liệu trình ${treatment.treatment_name}`}
                                       >
                                         <Edit className="h-4 w-4" aria-hidden="true" />
@@ -868,6 +917,7 @@ function TreatmentsContent() {
                                           e.stopPropagation()
                                           handleDeleteTreatment(treatment)
                                         }}
+                                        className="h-8 w-8"
                                         aria-label={`Xóa liệu trình ${treatment.treatment_name}`}
                                       >
                                         <Trash2 className="h-4 w-4 text-destructive" aria-hidden="true" />

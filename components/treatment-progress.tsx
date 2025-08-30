@@ -67,15 +67,13 @@ export function TreatmentProgress({ treatment, selectedSession }: TreatmentProgr
             <p className="font-medium">{formatDate(treatment.start_date)}</p>
           </div>
         </div>
-        {treatment.end_date && (
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <div>
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <div>
             <p className="text-muted-foreground">Ngày kết thúc</p>
-            <p className="font-medium">{formatDate(treatment.end_date)}</p>
+            <p className="font-medium">{treatment.end_date ? formatDate(treatment.end_date) : "Chưa xác định"}</p>
           </div>
-          </div>
-        )}
+        </div>
       </div>
 
       {sessions.length > 0 && (

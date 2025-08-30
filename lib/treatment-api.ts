@@ -24,6 +24,7 @@ export async function createTreatment(treatmentData: {
   total_sessions: number
   price: number
   start_date: string
+  end_date?: string | null
   notes?: string
 }) {
   const { data, error } = await supabase
@@ -305,13 +306,35 @@ export async function getTreatmentsByCustomer(customerId: string) {
     .from("treatments")
     .select(`
       *,
-      customer:customers(*)
+      customer:customers(*),
+      treatment_sessions(
+        session_date,
+        session_number
+      )
     `)
     .eq("customer_id", customerId)
     .order("created_at", { ascending: false })
 
   if (error) throw error
-  return data as (Treatment & { customer: any })[]
+
+  // Xử lý để lấy buổi điều trị gần nhất cho mỗi liệu trình
+  const treatmentsWithLatestSession = data.map(treatment => {
+    const sessions = treatment.treatment_sessions || []
+    const latestSession = sessions.length > 0
+      ? sessions.reduce((latest: any, current: any) => {
+          return !latest || new Date(current.session_date) > new Date(latest.session_date)
+            ? current
+            : latest
+        }, null)
+      : null
+
+    return {
+      ...treatment,
+      latest_session_date: latestSession?.session_date || null
+    }
+  })
+
+  return treatmentsWithLatestSession as (Treatment & { customer: any; latest_session_date: string | null })[]
 }
 
 // Cập nhật liệu trình
