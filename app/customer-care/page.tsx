@@ -352,7 +352,7 @@ function CustomerCareContent() {
   }
 
   const handleUpdateSessionInfo = async () => {
-    if (!editingSession || !currentEditingSession) return
+    if (!editingSession || !currentEditingSession || !selectedTreatment) return
     if (!currentUser) {
       toast({
         title: "Lỗi",
@@ -362,24 +362,61 @@ function CustomerCareContent() {
       return
     }
 
-    await updateSessionMutation.mutateAsync({
-      id: editingSession.id,
-      after_sales_care: editingAfterSalesCare,
-      next_appointment: editingNextAppointment || null
-    })
+    try {
+      // Cập nhật thông tin buổi điều trị trước
+      await updateSessionMutation.mutateAsync({
+        id: editingSession.id,
+        after_sales_care: editingAfterSalesCare,
+        next_appointment: editingNextAppointment || null
+      })
 
-    // Tự động tạo lịch hẹn nếu có next_appointment và next_appointment đã thay đổi
-    if (editingNextAppointment && selectedCustomer?.id) {
+      // Nếu có thay đổi nội dung CSKH, cập nhật trạng thái lịch hẹn
+      if (editingAfterSalesCare && editingAfterSalesCare !== currentEditingSession.after_sales_care) {
+        const appointmentStatus = await getAppointmentStatusByCode("service")
+        const response = await fetch(`/api/appointments/latest/${selectedTreatment.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status_id: appointmentStatus.id
+          })
+        })
+
+        if (!response.ok) {
+          throw new Error('Không thể cập nhật trạng thái lịch hẹn')
+        }
+      }
+
+      // Hiển thị thông báo thành công
+      setAppointmentCreated({
+        success: true,
+        date: editingNextAppointment,
+        message: `${selectedTreatment.treatment_name} - Buổi ${editingSession.session_number}
+• Đã cập nhật CSKH${editingNextAppointment !== currentEditingSession.next_appointment ? `
+• Đã tạo lịch hẹn mới: ${formatDate(editingNextAppointment)} lúc 09:00` : ''}`
+      })
+    } catch (error) {
+              toast({
+        title: "Lỗi",
+        description: "Không thể cập nhật thông tin. Vui lòng thử lại.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Tự động tạo lịch hẹn nếu ngày hẹn có thay đổi
+    if (editingNextAppointment && selectedCustomer?.id && editingNextAppointment !== currentEditingSession.next_appointment) {
       try {
-        // Xác định trạng thái dựa vào việc đã có lịch hẹn trước đó hay chưa
-        const statusCode = currentEditingSession.next_appointment ? "cancelled" : "service"
-        const appointmentStatus = await getAppointmentStatusByCode(statusCode)
+        // Luôn tạo lịch hẹn với trạng thái "cancelled" (chuyển hẹn mới)
+        const appointmentStatus = await getAppointmentStatusByCode("cancelled")
         
         await createAppointment({
           customer_id: selectedCustomer.id,
           appointment_date: editingNextAppointment,
           appointment_time: "09:00", // Mặc định 9:00 sáng
           status_id: appointmentStatus.id,
+          treatment_id: selectedTreatment.id,
           notes: `Buổi điều trị ${editingSession.session_number} - ${selectedTreatment?.treatment_name}`,
           created_by: currentUser.id
         })
@@ -388,10 +425,11 @@ function CustomerCareContent() {
         setAppointmentCreated({
           success: true,
           date: editingNextAppointment,
-          message: `Đã tạo lịch hẹn thành công cho ${selectedCustomer.name} vào ngày ${formatDate(editingNextAppointment)} lúc 09:00`
+          message: `${selectedTreatment.treatment_name} - Buổi ${editingSession.session_number}
+• Đã cập nhật CSKH${editingNextAppointment !== currentEditingSession.next_appointment ? `
+• Đã tạo lịch hẹn mới: ${formatDate(editingNextAppointment)} lúc 09:00` : ''}`
         })
       } catch (error) {
-        console.error("Lỗi tạo lịch hẹn:", error)
         // Hiển thị thông báo lỗi tạo lịch hẹn
         setAppointmentCreated({
           success: false,
