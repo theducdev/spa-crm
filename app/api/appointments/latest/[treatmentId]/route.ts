@@ -11,8 +11,6 @@ export async function PATCH(
     const { status_id } = await request.json()
 
     // Tìm lịch hẹn cuối cùng của treatment và cập nhật
-    console.log("Searching appointment for treatment:", params.treatmentId)
-    
     // Đầu tiên tìm lịch hẹn cuối cùng
     const { data: appointments, error: findError } = await supabase
       .from('appointments')
@@ -21,15 +19,9 @@ export async function PATCH(
       .order('appointment_date', { ascending: false })
       .order('appointment_time', { ascending: false })
 
-    if (findError) {
-      console.error("Error finding appointments:", findError)
-      throw findError
-    }
-    
-    console.log("Found appointments:", appointments)
+    if (findError) throw findError
 
     if (!appointments || appointments.length === 0) {
-      console.log("No appointments found")
       return NextResponse.json(
         { error: 'No appointments found' },
         { status: 404 }
@@ -37,7 +29,6 @@ export async function PATCH(
     }
 
     const latestAppointment = appointments[0]
-    console.log("Latest appointment to update:", latestAppointment)
 
     // Sau đó mới cập nhật
     const { data: appointment, error } = await supabase
@@ -47,12 +38,7 @@ export async function PATCH(
       .select()
       .single()
 
-    if (error) {
-      console.error("Error updating appointment:", error)
-      throw error
-    }
-
-    console.log("Successfully updated appointment:", appointment)
+    if (error) throw error
 
     if (error) throw error
 

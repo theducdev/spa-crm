@@ -82,11 +82,7 @@ export async function getAppointments(filters?: {
     throw error
   }
   
-  if (page && pageSize) {
-    return { data, total: count || 0 }
-  }
-  
-  return data
+  return { data, total: count || 0 }
 }
 
 // Lấy thông tin một lịch hẹn

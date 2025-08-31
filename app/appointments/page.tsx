@@ -75,35 +75,45 @@ function AppointmentsContent() {
 
   // Load tất cả appointments khi có search hoặc thay đổi filter
   const loadAllAppointments = useCallback(async () => {
-    try {
-      setLoadingAppointments(true)
-      
+  try {
+    setLoadingAppointments(true)
+    let allData: AppointmentWithCustomer[] = []
+    let hasMore = true
+    let currentOffset = 0
+    const BATCH_SIZE = 1000 // Supabase limit
+
+    while (hasMore) {
       const result = await getAppointments(
         {
           fromDate: filters.fromDate,
           toDate: filters.toDate,
           filterByCreatedAt: filters.showCreatedAt
         },
-        1,
-        999999
+        currentOffset / BATCH_SIZE + 1,  // page number
+        BATCH_SIZE
       )
       
-      let allData: AppointmentWithCustomer[] = []
+      const batchData = result.data
+      const total = result.total
+
+      allData = [...allData, ...batchData]
       
-      if (typeof result === 'object' && 'data' in result && 'total' in result) {
-        allData = result.data
+      // Kiểm tra xem còn data không
+      if (batchData.length < BATCH_SIZE || allData.length >= total) {
+        hasMore = false
       } else {
-        allData = result as AppointmentWithCustomer[]
+        currentOffset += BATCH_SIZE
       }
-      
-      setAllAppointments(allData)
-      setTotalAppointments(allData.length)
-    } catch (error) {
-      console.error("Error loading appointments:", error)
-    } finally {
-      setLoadingAppointments(false)
     }
-  }, [filters])
+    
+    setAllAppointments(allData)
+    setTotalAppointments(allData.length)
+  } catch (error) {
+    console.error("Error loading appointments:", error)
+  } finally {
+    setLoadingAppointments(false)
+  }
+}, [filters])
 
   // Load appointments theo trang khi không search
   const loadPageAppointments = useCallback(async () => {

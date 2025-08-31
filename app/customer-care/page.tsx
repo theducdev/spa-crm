@@ -362,9 +362,6 @@ function CustomerCareContent() {
       return
     }
 
-    console.log("Current session:", currentEditingSession)
-    console.log("New after_sales_care:", editingAfterSalesCare)
-    console.log("Treatment ID:", selectedTreatment.id)
 
     try {
       // Cập nhật thông tin buổi điều trị trước
