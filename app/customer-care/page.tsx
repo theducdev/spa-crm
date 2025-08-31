@@ -362,6 +362,10 @@ function CustomerCareContent() {
       return
     }
 
+    console.log("Current session:", currentEditingSession)
+    console.log("New after_sales_care:", editingAfterSalesCare)
+    console.log("Treatment ID:", selectedTreatment.id)
+
     try {
       // Cập nhật thông tin buổi điều trị trước
       await updateSessionMutation.mutateAsync({
@@ -373,6 +377,8 @@ function CustomerCareContent() {
       // Nếu có thay đổi nội dung CSKH, cập nhật trạng thái lịch hẹn
       if (editingAfterSalesCare && editingAfterSalesCare !== currentEditingSession.after_sales_care) {
         const appointmentStatus = await getAppointmentStatusByCode("service")
+        console.log("Found status:", appointmentStatus)
+        
         const response = await fetch(`/api/appointments/latest/${selectedTreatment.id}`, {
           method: 'PATCH',
           headers: {
@@ -397,7 +403,8 @@ function CustomerCareContent() {
 • Đã tạo lịch hẹn mới: ${formatDate(editingNextAppointment)} lúc 09:00` : ''}`
       })
     } catch (error) {
-              toast({
+      console.error("Lỗi cập nhật:", error)
+      toast({
         title: "Lỗi",
         description: "Không thể cập nhật thông tin. Vui lòng thử lại.",
         variant: "destructive",
@@ -425,11 +432,10 @@ function CustomerCareContent() {
         setAppointmentCreated({
           success: true,
           date: editingNextAppointment,
-          message: `${selectedTreatment.treatment_name} - Buổi ${editingSession.session_number}
-• Đã cập nhật CSKH${editingNextAppointment !== currentEditingSession.next_appointment ? `
-• Đã tạo lịch hẹn mới: ${formatDate(editingNextAppointment)} lúc 09:00` : ''}`
+          message: `${selectedTreatment.treatment_name}\nBuổi điều trị: ${editingSession.session_number}\n• Đã cập nhật CSKH${editingNextAppointment !== currentEditingSession.next_appointment ? `\n• Đã tạo lịch hẹn mới: ${formatDate(editingNextAppointment)} lúc 09:00` : ''}`
         })
       } catch (error) {
+        console.error("Lỗi tạo lịch hẹn:", error)
         // Hiển thị thông báo lỗi tạo lịch hẹn
         setAppointmentCreated({
           success: false,
@@ -886,7 +892,7 @@ function CustomerCareContent() {
             <AlertDialogTitle>
               {appointmentCreated?.success ? "Tạo lịch hẹn thành công" : "Lỗi tạo lịch hẹn"}
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="whitespace-pre-line">
               {appointmentCreated?.message}
             </AlertDialogDescription>
           </AlertDialogHeader>
