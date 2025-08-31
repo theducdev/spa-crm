@@ -3,6 +3,14 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Nhận các biến môi trường từ docker-compose build args
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+# Xuất ra ENV để Next.js build nhìn thấy
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
 
@@ -13,7 +21,7 @@ RUN npm install -g pnpm && \
 # Copy source code
 COPY . .
 
-# Build application
+# Build application (lúc này env đã có giá trị)
 RUN pnpm build
 
 # Production stage
