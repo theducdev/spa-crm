@@ -67,11 +67,30 @@ function TreatmentsContent() {
     notes: ""
   })
 
+  // Chỉ load danh sách khách hàng khi có search hoặc lần đầu vào trang
   useEffect(() => {
-    loadCustomers()
-    loadTreatmentPackages()
-    loadCurrentUser()
+    if (!searchFilters.search) {
+      // Nếu không có từ khóa tìm kiếm, chỉ load trang đầu tiên với số lượng giới hạn
+      loadCustomers()
+    }
   }, [])
+
+  // Load treatment packages và current user khi cần thiết
+  useEffect(() => {
+    const loadInitialData = async () => {
+      if (showNewTreatmentDialog || showEditTreatmentDialog) {
+        await loadTreatmentPackages()
+      }
+    }
+    loadInitialData()
+  }, [showNewTreatmentDialog, showEditTreatmentDialog])
+
+  // Chỉ load current user khi cần edit session
+  useEffect(() => {
+    if (showEditSessionDialog) {
+      loadCurrentUser()
+    }
+  }, [showEditSessionDialog])
 
   const loadCurrentUser = async () => {
     try {
@@ -88,7 +107,7 @@ function TreatmentsContent() {
   useEffect(() => {
     const timer = setTimeout(() => {
       loadCustomers()
-    }, 500)
+    }, 2000) // Tăng thời gian chờ lên 2 giây
 
     return () => clearTimeout(timer)
   }, [searchFilters.search])
@@ -108,27 +127,35 @@ function TreatmentsContent() {
     }
   }, [toast])
 
-  // Thêm effect để theo dõi selectedCustomerId từ URL
-  useEffect(() => {
-    if (searchFilters.selectedCustomerId) {
-      // Nếu có selectedCustomerId, load customer cụ thể đó
-      loadSpecificCustomer(searchFilters.selectedCustomerId)
-    } else {
-      setSelectedCustomer(null)
-    }
-  }, [searchFilters.selectedCustomerId, loadSpecificCustomer])
-
+  // Effect để load treatments khi có selectedCustomer
   useEffect(() => {
     if (selectedCustomer) {
       loadCustomerTreatments()
     }
-  }, [selectedCustomer])
+  }, [selectedCustomer?.id]) // Chỉ theo dõi id thay vì toàn bộ object
+
+  // Effect để xử lý selectedCustomerId từ URL
+  useEffect(() => {
+    if (!searchFilters.selectedCustomerId) {
+      setSelectedCustomer(null)
+      return
+    }
+    
+    // Nếu đã có selectedCustomer với id trùng khớp, không cần load lại
+    if (selectedCustomer?.id === searchFilters.selectedCustomerId) {
+      return
+    }
+
+    loadSpecificCustomer(searchFilters.selectedCustomerId)
+  }, [searchFilters.selectedCustomerId])
 
   const loadCustomers = async () => {
     try {
       setLoading(true)
       const filters: CustomerFilters = {
         status: "active",
+        limit: 100, // Giới hạn 20 khách hàng mỗi lần load
+        page: 1,
       }
       if (searchFilters.search) {
         filters.search = searchFilters.search
@@ -319,17 +346,26 @@ function TreatmentsContent() {
   }
 
   const handleCustomerClick = (customer: Customer) => {
+    // Nếu đang chọn cùng một khách hàng, chỉ toggle dialog
+    if (customer.id === searchFilters.selectedCustomerId) {
+      setShowCustomerInfoDialog(prev => !prev)
+      return
+    }
+    // Nếu chọn khách hàng khác
+    setSelectedCustomer(customer) // Set trực tiếp để tránh gọi API thêm lần nữa
     updateFilters({ selectedCustomerId: customer.id })
     setShowCustomerInfoDialog(true)
   }
 
   const handleCloseCustomerDialog = () => {
     setShowCustomerInfoDialog(false)
+    // Không cần clear selectedCustomerId khi đóng dialog
   }
 
   const handleClearCustomerSelection = () => {
-    updateFilters({ selectedCustomerId: "" })
+    setShowCustomerInfoDialog(false)
     setSelectedCustomer(null)
+    updateFilters({ selectedCustomerId: "" })
   }
 
   return (
